@@ -173,11 +173,12 @@ wop-skills/  (github.com/wop-platform/wop-skills，与 6 SDK 同组织)
 （guard self-check + SKILL.md lint R1–R6 + pytest 挂起位）、突变证据
 （kill rate 8/8=100%，负例 2/2，含 B-102 门缺陷发现修复记录）。
 
-剩余顺序：
-1. wop-cli CLI 载体（八件套）+ requirements.lock + tests/（pytest 门激活）
-2. API 发现契约 contracts/api-discovery.openapi.yaml + mocks/（提交平台并行实现）
-3. wop-dev / wop-troubleshoot 知识层（含 §4 全部内容要求）
-4. SECURITY.md S6 主动防御的测试载体（argv 检测负向量）
+剩余顺序（2026-08-29 全部落地，tests 31 绿 + kill rate 11/11）：
+1. [x] wop-cli CLI 载体（八件套）+ requirements.lock + tests/（pytest 门已激活）
+2. [x] API 发现契约 contracts/api-discovery.openapi.yaml + mocks/
+3. [x] wop-dev / wop-troubleshoot 知识层（含 §4 全部内容要求）
+4. [x] SECURITY.md S6 主动防御的测试载体（argv 检测负向量）
+5. [x] Phase 6：spec-matrix 反向核对矩阵 + lint R7 + mutations B-2xx
 
 ## 7. 开放项
 
