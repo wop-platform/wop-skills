@@ -1,0 +1,176 @@
+openapi: 3.1.0
+info:
+  title: WOP API Discovery
+  version: 0.1.0
+  description: |
+    WOP 开放平台 API 发现契约（wop-skills 契约先行，spec.md 决策 #3/#4）。
+    平台侧（开发者中心或 gtsp-wop-service 开放接口）照本契约实现后，
+    `wop api list / describe` 自动切换实模式（WOP_DISCOVERY_URL）。
+
+    语义要点：
+    - 可见范围 = 调用方 appKey **已授权**的 API（授权口径），非全量目录
+    - versionStatus 外化 `gray|full` 字符串，不透传平台内部码值
+    - 参数树嵌套化（无内部主键/外键），range 外化 `header|query|body|response`
+    - 禁止暴露：beSvcId/beApiPath/内部 id/auditStatus/importSource/审计字段/负责人姓名
+securitySchemes:
+  appKeyHeader:
+    type: apiKey
+    in: header
+    name: X-WOP-AppKey
+security:
+  - appKeyHeader: []
+servers:
+  - url: https://developer.example.wop
+    description: 占位——平台实现方替换为真实域名
+paths:
+  /apis:
+    get:
+      operationId: listApis
+      summary: 已授权 API 列表
+      parameters:
+        - name: groupTag
+          in: query
+          schema: { type: string }
+          description: 按分组标签过滤（可选）
+      responses:
+        "200":
+          description: 授权范围内的 API 摘要列表
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [apis]
+                properties:
+                  apis:
+                    type: array
+                    items: { $ref: "#/components/schemas/ApiSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /apis/{apiFullPath}:
+    get:
+      operationId: describeApi
+      summary: API 详情（参数树 + 出入参示例 + 版本）
+      parameters:
+        - name: apiFullPath
+          in: path
+          required: true
+          schema: { type: string }
+          description: 对外完整路径，如 /gateway/logistics.waybill.sync
+        - name: versionNumber
+          in: query
+          schema: { type: string }
+          description: 指定版本（缺省返回默认版本详情 + 活跃版本列表）
+      responses:
+        "200":
+          description: API 详情
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiDetail" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404":
+          description: 路径不存在或不在授权范围内
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+components:
+  responses:
+    Unauthorized:
+      description: appKey 缺失或无效
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: appKey 有效但无任何授权（或授权全部过期）
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Error:
+      type: object
+      required: [code, message]
+      properties:
+        code: { type: string }
+        message: { type: string }
+    ApiSummary:
+      type: object
+      required: [apiFullPath, apiName, httpRequestMethod, contentType, queryFlag, idempotentFlag, versionStatus, versionNumber]
+      properties:
+        apiFullPath:
+          type: string
+          description: 对外完整调用路径（业务域编码 + API 路径）
+          examples: ["/gateway/logistics.waybill.sync"]
+        apiName: { type: string }
+        apiDescription: { type: string }
+        httpRequestMethod: { type: string, enum: [POST, GET] }
+        contentType: { type: string, enum: [json, form, multipart, xml, text] }
+        queryFlag: { type: boolean, description: true=读类（S7 写操作确认豁免） }
+        idempotentFlag: { type: boolean }
+        groupTag: { type: string }
+        businessDomainCode: { type: string }
+        versionNumber: { type: string }
+        versionStatus: { type: string, enum: [gray, full] }
+        updatedAt: { type: string, format: date-time }
+    ApiDetail:
+      type: object
+      required: [apiFullPath, apiName, httpRequestMethod, contentType, queryFlag, idempotentFlag, parameters, examples, versions]
+      properties:
+        apiFullPath: { type: string }
+        apiName: { type: string }
+        apiDescription: { type: string }
+        httpRequestMethod: { type: string, enum: [POST, GET] }
+        contentType: { type: string, enum: [json, form, multipart, xml, text] }
+        queryFlag: { type: boolean }
+        idempotentFlag: { type: boolean }
+        connectionTimeoutMs: { type: integer, description: 客户端超时设置依据 }
+        readTimeoutMs: { type: integer }
+        qpsLimitThreshold: { type: integer, description: 限流预期（超限将收 OP_GW_9001） }
+        groupTag: { type: string }
+        businessDomainCode: { type: string }
+        parameters:
+          type: array
+          description: 参数树根节点列表（range 区分 header/query/body/response 四区）
+          items: { $ref: "#/components/schemas/ApiParameterNode" }
+        examples:
+          type: array
+          items: { $ref: "#/components/schemas/ApiExample" }
+        versions:
+          type: array
+          description: 活跃版本（灰度/全量）
+          items:
+            type: object
+            required: [versionNumber, versionStatus, isDefault]
+            properties:
+              versionNumber: { type: string }
+              versionStatus: { type: string, enum: [gray, full] }
+              isDefault: { type: boolean, description: 当前生产版本 }
+              detailDescription: { type: string }
+        updatedAt: { type: string, format: date-time }
+    ApiParameterNode:
+      type: object
+      required: [name, type, range, required]
+      properties:
+        name: { type: string }
+        type:
+          type: string
+          enum: [string, int, float, boolean, object, array, date, datetime, bigDecimal]
+        range:
+          type: string
+          enum: [header, query, body, response]
+        required: { type: boolean }
+        checkRule: { type: string, description: 校验规则（平台定义语法） }
+        default: { type: string }
+        example: { type: string }
+        description: { type: string }
+        sort: { type: integer }
+        children:
+          type: array
+          description: 子参数（type=object/array 时存在）
+          items: { $ref: "#/components/schemas/ApiParameterNode" }
+    ApiExample:
+      type: object
+      required: [exampleType, requestExample, responseExample]
+      properties:
+        exampleType: { type: string, enum: [success, failure] }
+        requestExample: { type: string, description: 请求报文示例（原文） }
+        responseExample: { type: string, description: 响应报文示例（原文） }

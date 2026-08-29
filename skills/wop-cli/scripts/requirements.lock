@@ -1,0 +1,3 @@
+# wop-cli 依赖锁（spec.md 决策 #9 三元组的版本面；行为面由 `wop selftest` 最终守门）
+# 安装：pip install -r skills/wop-cli/scripts/requirements.lock
+wop-python-sdk==0.1.1

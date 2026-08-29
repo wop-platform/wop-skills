@@ -1,0 +1,147 @@
+{
+  "apiFullPath": "/gateway/logistics.waybill.sync",
+  "apiName": "运单同步",
+  "apiDescription": "物流运单状态同步查询",
+  "httpRequestMethod": "POST",
+  "contentType": "json",
+  "queryFlag": true,
+  "idempotentFlag": true,
+  "connectionTimeoutMs": 10000,
+  "readTimeoutMs": 30000,
+  "qpsLimitThreshold": 100,
+  "groupTag": "logistics",
+  "businessDomainCode": "logistics",
+  "parameters": [
+    {
+      "name": "waybillNo",
+      "type": "string",
+      "range": "body",
+      "required": true,
+      "checkRule": "^[A-Z0-9]{10,20}$",
+      "default": null,
+      "example": "SF1234567890123",
+      "description": "运单号",
+      "sort": 1,
+      "children": []
+    },
+    {
+      "name": "sender",
+      "type": "object",
+      "range": "body",
+      "required": true,
+      "description": "寄方信息",
+      "sort": 2,
+      "children": [
+        {
+          "name": "name",
+          "type": "string",
+          "range": "body",
+          "required": true,
+          "example": "张三",
+          "description": "寄方姓名",
+          "sort": 1,
+          "children": []
+        },
+        {
+          "name": "phones",
+          "type": "array",
+          "range": "body",
+          "required": true,
+          "description": "寄方电话（至少一个）",
+          "sort": 2,
+          "children": [
+            {
+              "name": "",
+              "type": "string",
+              "range": "body",
+              "required": true,
+              "example": "13800138000",
+              "description": "电话号码",
+              "sort": 1,
+              "children": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "X-WOP-Trace",
+      "type": "string",
+      "range": "header",
+      "required": false,
+      "example": "merchant-trace-001",
+      "description": "商户侧追踪标识（透传）",
+      "sort": 1,
+      "children": []
+    },
+    {
+      "name": "detailLevel",
+      "type": "string",
+      "range": "query",
+      "required": false,
+      "default": "brief",
+      "checkRule": "brief|full",
+      "example": "full",
+      "description": "明细级别",
+      "sort": 1,
+      "children": []
+    },
+    {
+      "name": "status",
+      "type": "string",
+      "range": "response",
+      "required": true,
+      "example": "SIGNED",
+      "description": "运单当前状态",
+      "sort": 1,
+      "children": []
+    },
+    {
+      "name": "tracks",
+      "type": "array",
+      "range": "response",
+      "required": true,
+      "description": "轨迹列表",
+      "sort": 2,
+      "children": [
+        {
+          "name": "time",
+          "type": "datetime",
+          "range": "response",
+          "required": true,
+          "example": "2026-08-29 10:00:00",
+          "description": "轨迹时间",
+          "sort": 1,
+          "children": []
+        },
+        {
+          "name": "desc",
+          "type": "string",
+          "range": "response",
+          "required": true,
+          "example": "已签收",
+          "description": "轨迹描述",
+          "sort": 2,
+          "children": []
+        }
+      ]
+    }
+  ],
+  "examples": [
+    {
+      "exampleType": "success",
+      "requestExample": "{\"waybillNo\": \"SF1234567890123\", \"sender\": {\"name\": \"张三\", \"phones\": [\"13800138000\"]}}",
+      "responseExample": "{\"status\": \"SIGNED\", \"tracks\": [{\"time\": \"2026-08-29 10:00:00\", \"desc\": \"已签收\"}]}"
+    },
+    {
+      "exampleType": "failure",
+      "requestExample": "{\"waybillNo\": \"invalid-no\"}",
+      "responseExample": "{\"code\": \"BIZ_4001\", \"message\": \"运单号格式非法\"}"
+    }
+  ],
+  "versions": [
+    { "versionNumber": "1.0.2", "versionStatus": "full", "isDefault": true, "detailDescription": "稳定版" },
+    { "versionNumber": "1.1.0", "versionStatus": "gray", "isDefault": false, "detailDescription": "新增轨迹分页" }
+  ],
+  "updatedAt": "2026-08-20T08:00:00Z"
+}

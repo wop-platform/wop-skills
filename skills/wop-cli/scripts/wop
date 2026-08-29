@@ -1,0 +1,390 @@
+#!/usr/bin/env python3
+"""wop — WOP 网关官方 CLI（skills/wop-cli 基座载体）
+
+对齐三元组：crypto-strategy-spec v0.3-reviewed + wop-sdk-spec v1.0-ratified
+           + wop-python-sdk >= 0.1.1（0.1.0 缺尾随位修复链，不可用）
+安全纪律：SECURITY.md S1–S8（本文件为 MISSION 周界，变更走人类 MR）
+依赖安装：pip install -r requirements.lock（同目录）
+退出码：0 成功；1 业务/协议失败；2 配置/环境错误；3 S6 防御性拒绝
+当前命令面：keygen / selftest（spec.md 决策 #5 八件套的其余命令随 Phase 3/4 落地）
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import hashlib
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+EXIT_OK, EXIT_FAIL, EXIT_CONFIG, EXIT_DEFENSE = 0, 1, 2, 3
+
+SUITES = ("WOP-RSA3072-SHA256", "WOP-RSA4096-SHA256", "WOP-SM2-SM3")
+RSA_SUITE_BITS = {"WOP-RSA3072-SHA256": 3072, "WOP-RSA4096-SHA256": 4096}
+
+# 黄金向量锚（wop-specs ce92dd4，12 条 formatRules）——spec:#9 三元组运行时校验
+VECTORS_MD5 = "1033af2c35b498b479e41487ccbda862"
+MIN_SDK_VERSION = (0, 1, 1)
+FORMAT_RULES_COUNT = 12
+HEADER_RULE_IDS = frozenset({
+    "header-rsa-ok", "header-sm2-ok", "header-crossfamily",
+    "header-double-space", "header-uppercase-hex", "header-wrong-hex-len",
+})
+B64URL_RULE_IDS = frozenset({
+    "b64url-with-padding", "b64url-illegal-char",
+    "b64url-trailing-bits-noncanonical-2", "b64url-trailing-bits-noncanonical-3",
+    "b64url-trailing-bits-canonical-2", "b64url-trailing-bits-canonical-3",
+})
+ALL_FORMAT_RULE_IDS = HEADER_RULE_IDS | B64URL_RULE_IDS
+
+# SM2 sm2p256v1 曲线阶 n（公开规范参数，GB/T 32918.5-2017）——keygen d 标量采样范围
+_SM2_N = int("FFFFFFFEFFFFFFFFFFFFFFFFFFFFFFFF7203DF6B21C6052B53BBF40939D54123", 16)
+
+
+# ---------------------------------------------------------------------------
+# S6 argv 主动防御（SECURITY.md S6）：私钥内容不得进入命令行
+# 检测边界（如实）：PEM 头确定拦；>=256 连续 base64 字符长块拦；
+# 短 base64（如 SM2 d 标量 44 字符）无法与合法参数可靠区分——依赖 S1/S3 纪律。
+# ---------------------------------------------------------------------------
+_PEM_MARKERS = ("-----BEGIN PRIVATE KEY-----", "-----BEGIN RSA PRIVATE KEY-----",
+                "-----BEGIN EC PRIVATE KEY-----", "-----BEGIN")
+_B64_LONG_RE = re.compile(r"[A-Za-z0-9+/]{256,}|[A-Za-z0-9_-]{256,}")
+
+
+def guard_argv(argv: list) -> bool:
+    """spec:SECURITY-S6 任意参数疑似私钥材料 → 拒绝执行（exit 3）。"""
+    for arg in argv:
+        if any(marker in arg for marker in _PEM_MARKERS) or _B64_LONG_RE.search(arg):
+            sys.stderr.write(
+                "wop: 检测到疑似私钥材料出现在命令行参数（SECURITY.md S6/S2 拒绝）。\n"
+                "私钥唯一合法通道（S1）：环境变量 WOP_PRIVATE_KEY，或密钥文件路径\n"
+                "WOP_PRIVATE_KEY_FILE（权限 0600）。请勿把私钥粘贴到命令行/对话。\n"
+            )
+            return False
+    return True
+
+
+def _die(code: int, msg: str) -> int:
+    sys.stderr.write(f"wop: {msg}\n")
+    return code
+
+
+# ---------------------------------------------------------------------------
+# fixture 定位：WOP_VECTORS_PATH env → CLI 同目录 crypto-vectors.json → 仓内 tests/
+# ---------------------------------------------------------------------------
+def locate_vectors() -> Path:
+    env = os.environ.get("WOP_VECTORS_PATH")
+    candidates = []
+    if env:
+        candidates.append(Path(env))
+    here = Path(__file__).resolve().parent
+    candidates.append(here / "crypto-vectors.json")
+    candidates.append(here.parent.parent.parent / "tests" / "fixtures" / "crypto-vectors.json")
+    for c in candidates:
+        if c.is_file():
+            return c
+    raise FileNotFoundError(
+        "黄金向量 fixture 未找到（查找顺序：$WOP_VECTORS_PATH → CLI 同目录 → 仓内 tests/fixtures/）"
+    )
+
+
+# ---------------------------------------------------------------------------
+# keygen —— spec.md 决策 #5；输出纪律 SECURITY.md S4/S5
+# ---------------------------------------------------------------------------
+def cmd_keygen(args) -> int:
+    suite: str = args.suite
+    if suite not in SUITES:
+        return _die(EXIT_CONFIG, f"未知套件 {suite}；可选：{' / '.join(SUITES)}")
+    try:
+        from wop_sdk.keys import (
+            load_rsa_private_key, load_rsa_public_key,
+            load_sm2_private_key, load_sm2_public_key,
+        )
+        from wop_sdk.sm2crypto import Sm2Ops, sm2_derive_public_hex
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import rsa as _rsa
+    except ImportError as exc:
+        return _die(EXIT_CONFIG, f"依赖缺失：{exc}（安装：pip install -r requirements.lock）")
+
+    out_dir = Path(args.out_dir).expanduser()
+    try:
+        out_dir.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        return _die(EXIT_CONFIG, f"输出目录不可用：{exc}")
+
+    if suite in RSA_SUITE_BITS:
+        bits = RSA_SUITE_BITS[suite]
+        priv = _rsa.generate_private_key(public_exponent=65537, key_size=bits)
+        priv_b64 = base64.b64encode(
+            priv.private_bytes(serialization.Encoding.DER,
+                               serialization.PrivateFormat.PKCS8,
+                               serialization.NoEncryption())
+        ).decode()
+        pub_b64 = base64.b64encode(
+            priv.public_key().public_bytes(serialization.Encoding.DER,
+                                           serialization.PublicFormat.SubjectPublicKeyInfo)
+        ).decode()
+        # 回读自检（生成器自证：产物必须能被 SDK 按 D12 契约消费）
+        load_rsa_private_key(priv_b64, bits)
+        load_rsa_public_key(pub_b64, bits)
+    else:
+        # SM2：d 标量均匀采样于 [1, n-1]（重采样直至入域）
+        d = int.from_bytes(os.urandom(32), "big")
+        while not (1 <= d <= _SM2_N - 1):
+            d = int.from_bytes(os.urandom(32), "big")
+        priv_b64 = base64.b64encode(d.to_bytes(32, "big")).decode()
+        xy_hex = sm2_derive_public_hex(f"{d:064x}")
+        pub_b64 = base64.b64encode(b"\x04" + bytes.fromhex(xy_hex)).decode()
+        # 回读自检 + 签名 roundtrip（点在曲线/可签名由 I5 校验与实签双重保证）
+        d2 = load_sm2_private_key(priv_b64)
+        if d2 != d.to_bytes(32, "big"):
+            return _die(EXIT_FAIL, "SM2 私钥回读不一致（内部错误）")
+        pub = load_sm2_public_key(pub_b64)
+        ops = Sm2Ops(private_key_hex=f"{d:064x}", public_xy_hex=pub.xy_hex)
+        sig = ops.sign(b"wop-keygen-selfcheck", f"{d:064x}")
+        if not ops.verify(sig, b"wop-keygen-selfcheck"):
+            return _die(EXIT_FAIL, "SM2 签名 roundtrip 自检失败（内部错误）")
+
+    key_path = out_dir / f"merchant_private.{suite}.b64"
+    try:
+        fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, "w") as f:
+            f.write(priv_b64 + "\n")
+    except FileExistsError:
+        return _die(EXIT_CONFIG, f"私钥文件已存在，拒绝覆盖（安全）：{key_path}")
+    os.chmod(key_path, 0o600)
+
+    # S4/S5：stdout 只有公钥与路径，零私钥材料
+    print(f"suite: {suite}")
+    print(f"merchant_public_key(上传平台): {pub_b64}")
+    print(f"merchant_private_key_file(0600): {key_path}")
+    print("next: 在平台录入公钥；私钥经 WOP_PRIVATE_KEY_FILE 使用（SECURITY.md S1）")
+    return EXIT_OK
+
+
+# ---------------------------------------------------------------------------
+# selftest —— spec.md 决策 #5/#9；分层 L1–L5，任一红 → exit 2（拒跑其余命令）
+# 向量纪律（docs/research/vectors.md）：testOnly 材料禁入生产路径；
+# formatRules 的 header 值仅格式层语义，不作密码学向量。
+# ---------------------------------------------------------------------------
+class LayerFail(Exception):
+    pass
+
+
+def _check(ok: bool, layer: str, msg: str):
+    if not ok:
+        raise LayerFail(f"[{layer}] {msg}")
+
+
+def cmd_selftest(args) -> int:
+    results: list = []
+
+    def layer(name: str, fn):
+        try:
+            detail = fn()
+            results.append((name, True, detail or "ok"))
+        except LayerFail as exc:
+            results.append((name, False, str(exc)))
+        except Exception as exc:  # L1 依赖缺失/fixture 缺失等 → 同层红
+            results.append((name, False, f"{type(exc).__name__}: {exc}"))
+
+    # L1 依赖导入与版本
+    def l1():
+        import wop_sdk
+        ver = tuple(int(x) for x in wop_sdk.__version__.split("."))
+        _check(ver >= MIN_SDK_VERSION, "L1",
+               f"wop-python-sdk {wop_sdk.__version__} < 最低要求 {MIN_SDK_VERSION}")
+        return f"wop_sdk {wop_sdk.__version__}"
+    layer("L1 依赖与版本", l1)
+
+    # fixture 完整性（MD5 锚）——L2 前置但独立成层报告
+    vectors_holder: dict = {}
+
+    def lf():
+        path = locate_vectors()
+        md5 = hashlib.md5(path.read_bytes()).hexdigest()
+        _check(md5 == VECTORS_MD5, "FIXTURE",
+               f"向量哈希 {md5} != 真源锚 {VECTORS_MD5}（wop-specs ce92dd4）——"
+               "fixture 被篡改或版本漂移，selftest 拒跑（spec:#9 / intent A4）")
+        vectors_holder["v"] = json.loads(path.read_text(encoding="utf-8"))
+        return f"{path.name} md5 ok"
+    layer("LF fixture 锚", lf)
+
+    def l2():
+        v = vectors_holder.get("v")
+        if v is None:
+            raise LayerFail("[L2] fixture 未加载（见 LF 层）")
+        from wop_sdk.digest import check_digest_header
+        from wop_sdk.encoding import b64url_decode
+        from wop_sdk.errors import ProtocolFormatError, UnsupportedSuiteError
+        from wop_sdk.suites import parse_suite
+
+        rules = v["formatRules"]
+        _check(len(rules) == FORMAT_RULES_COUNT, "L2",
+               f"formatRules {len(rules)} 条 != 哨兵 {FORMAT_RULES_COUNT}（真源增删即炸）")
+        ids = {r["id"] for r in rules}
+        _check(ids == ALL_FORMAT_RULE_IDS, "L2",
+               f"formatRules id 集合漂移：新增 {ids - ALL_FORMAT_RULE_IDS} / 缺失 {ALL_FORMAT_RULE_IDS - ids}")
+        seen_h, seen_b = set(), set()
+        for rule in rules:
+            rid, expect = rule["id"], rule["expect"]
+            if rid in HEADER_RULE_IDS:
+                seen_h.add(rid)
+                suite = parse_suite(rule.get("suite", "WOP-RSA3072-SHA256"))
+                if expect == "accept":
+                    check_digest_header(suite, rule["value"])
+                else:
+                    try:
+                        check_digest_header(suite, rule["value"])
+                        raise LayerFail(f"[L2] header 规则 {rid} 未按预期拒绝")
+                    except (ProtocolFormatError, UnsupportedSuiteError):
+                        pass
+            elif rid in B64URL_RULE_IDS:
+                seen_b.add(rid)
+                if expect == "accept":
+                    b64url_decode(rule["value"])
+                else:
+                    try:
+                        b64url_decode(rule["value"])
+                        raise LayerFail(f"[L2] b64url 规则 {rid} 未按预期拒绝")
+                    except ValueError:
+                        pass
+        _check(seen_h == HEADER_RULE_IDS and seen_b == B64URL_RULE_IDS, "L2", "子集不完备")
+        return f"formatRules 12/12（header 6 + b64url 6，正负全量）"
+    layer("L2 格式规则", l2)
+
+    def l3():
+        v = vectors_holder.get("v")
+        if v is None:
+            raise LayerFail("[L3] fixture 未加载（见 LF 层）")
+        from wop_sdk.digest import compute_digest
+        from wop_sdk.encoding import b64url_decode, b64url_encode
+        from wop_sdk.envelope import unwrap_dek
+        from wop_sdk.errors import DecryptError
+        from wop_sdk.keys import load_rsa_private_key, load_sm2_private_key, load_sm2_public_key
+        from wop_sdk.signature import sign
+        from wop_sdk.sm2crypto import Sm2Ops, sm2_sign_with_sm3
+        from wop_sdk.suites import parse_suite
+
+        RSA3072 = parse_suite("WOP-RSA3072-SHA256")
+        RSA4096 = parse_suite("WOP-RSA4096-SHA256")
+        SM2 = parse_suite("WOP-SM2-SM3")
+        keys = v["keys"]
+
+        def vec(section, vid):
+            return next(x for x in v[section] if x["id"] == vid)
+
+        msg = v["inputs"]["message"].encode("utf-8")
+        # digest 正向量（2 条，hex 字节级）
+        for vid, suite in (("digest-sha256", RSA3072), ("digest-sm3", SM2)):
+            d = vec("digest", vid)
+            _check(compute_digest(suite, d["input"].encode("utf-8")).hex() == d["expectedHex"],
+                   "L3", f"{vid} 摘要字节不一致")
+        # signature 正向量（3 条，签名 b64url 字节级）
+        sv = vec("signature", "rsa3072-sign")
+        sig = sign(RSA3072, load_rsa_private_key(keys["rsa3072"]["privatePkcs8B64"], 3072), msg)
+        _check(b64url_encode(sig) == sv["expectedSigB64u"], "L3", "rsa3072-sign 签名字节不一致")
+        sv = vec("signature", "rsa4096-sign")
+        sig = sign(RSA4096, load_rsa_private_key(keys["rsa4096"]["privatePkcs8B64"], 4096), msg)
+        _check(b64url_encode(sig) == sv["expectedSigB64u"], "L3", "rsa4096-sign 签名字节不一致")
+        sv = vec("signature", "sm2-sign-fixedk")
+        k_hex = b64url_decode(v["inputs"]["sm2FixedKB64u"]).hex()
+        ops = Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex(),
+                     public_xy_hex=load_sm2_public_key(keys["sm2"]["publicPointB64"]).xy_hex)
+        sig = sm2_sign_with_sm3(ops, msg, k_hex)
+        _check(b64url_decode(sv["expectedSigB64u"]) == sig and len(sig) == 64,
+               "L3", "sm2-sign-fixedk 签名字节不一致（或非裸 r||s 64B）")
+        # keyEncrypt 负向量（2 条必须拒，且对外模糊钉死 I7）
+        neg = vec("keyEncrypt", "oaep3072-mgf1sha1-trap")
+        try:
+            unwrap_dek(RSA3072, load_rsa_private_key(keys["rsa3072"]["privatePkcs8B64"], 3072),
+                       b64url_decode(neg["cipherB64u"]))
+            raise LayerFail("[L3] oaep3072-mgf1sha1-trap 未拒绝（F2 钉子失效）")
+        except DecryptError as exc:
+            _check(str(exc) == "解密失败", "L3", f"I7 模糊消息被细化：{exc}")
+        neg = vec("keyEncrypt", "sm2-encrypt-c1c2c3-mismatch")
+        try:
+            unwrap_dek(SM2, Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex()),
+                       b64url_decode(neg["cipherB64u"]))
+            raise LayerFail("[L3] sm2-encrypt-c1c2c3-mismatch 未拒绝（顺序钉子失效）")
+        except DecryptError:
+            pass
+        return "digest 2 + signature 3 + 负向量 2（字节级，I7 模糊钉死）"
+
+    layer("L3 密码学字节级", l3)
+
+    def l4():
+        v = vectors_holder.get("v")
+        if v is None:
+            raise LayerFail("[L4] fixture 未加载（见 LF 层）")
+        from wop_sdk import WopClient, WopConfig
+        keys = v["keys"]
+        for suite, kmat in (
+            ("WOP-RSA3072-SHA256", keys["rsa3072"]),
+            ("WOP-RSA4096-SHA256", keys["rsa4096"]),
+            ("WOP-SM2-SM3", keys["sm2"]),
+        ):
+            priv = kmat["privatePkcs8B64"] if "privatePkcs8B64" in kmat else kmat["privateDB64"]
+            pub = kmat["publicSpkiB64"] if "publicSpkiB64" in kmat else kmat["publicPointB64"]
+            client = WopClient(WopConfig(app_key="selftest-only", suite=suite,
+                                         merchant_private_key=priv, platform_public_key=pub))
+            draft = client.build_request("POST", "/gateway/selftest.probe", {"ping": 1})
+            h = {k.lower(): v_ for k, v_ in draft.headers.items()}
+            digest = h.get("x-wop-content-digest", "")
+            _check(re.fullmatch(r"(sha-256|sm3) [0-9a-f]{64}", digest) is not None, "L4",
+                   f"{suite} L0 digest 头格式异常：{digest!r}")
+            sign_header = h.get("x-wop-sign", "")
+            _check(len(sign_header.split("/")) == 4, "L4",
+                   f"{suite} x-wop-sign 非四段式：{sign_header[:40]!r}…")
+            draft2 = client.build_request("POST", "/gateway/selftest.probe",
+                                          {"card": "6222000000000000"}, level="L2")
+            h2 = {k.lower(): v_ for k, v_ in draft2.headers.items()}
+            _check(h2.get("x-wop-encrypt", "").startswith("L2;dek="), "L4",
+                   f"{suite} L2 加密头异常")
+            body = json.loads(draft2.wire_body)
+            _check(set(body) == {"encrypted"} and isinstance(body["encrypted"], str), "L4",
+                   f"{suite} L2 wire body 非信封 JSON：{str(body)[:40]}")
+        return "三套件 L0/L2 构造冒烟（digest/sign/encrypt 头 + 信封体）"
+    layer("L4 集成冒烟", l4)
+
+    # L5 与 LF 合并语义：MD5 在 LF 已锚；此处输出三元组结论
+    def l5():
+        import wop_sdk
+        return (f"crypto-spec v0.3-reviewed + sdk-spec v1.0-ratified + "
+                f"wop-python-sdk {wop_sdk.__version__} ✓ / vectors md5 {VECTORS_MD5[:8]}… ✓")
+    layer("L5 三元组", l5)
+
+    all_ok = True
+    for name, ok, detail in results:
+        print(f"  {'PASS' if ok else 'FAIL'}  {name} — {detail}")
+        all_ok = all_ok and ok
+    if not all_ok:
+        sys.stderr.write("selftest 失败：环境不满足对齐三元组，其余命令拒跑（spec:#9）\n")
+        return EXIT_CONFIG
+    print("selftest: 全绿")
+    return EXIT_OK
+
+
+def main(argv: list) -> int:
+    if not guard_argv(argv[1:]):  # spec:SECURITY-S6 main 首行防御
+        return EXIT_DEFENSE
+    parser = argparse.ArgumentParser(prog="wop", description="WOP 网关官方 CLI（wop-cli 基座）")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    p_keygen = sub.add_parser("keygen", help="生成商户密钥对（私钥写 0600 文件，stdout 只出公钥）")
+    p_keygen.add_argument("--suite", required=True, choices=SUITES)
+    p_keygen.add_argument("--out-dir", default="~/.wop")
+    p_keygen.set_defaults(fn=cmd_keygen)
+
+    p_selftest = sub.add_parser("selftest", help="分层自测（向量字节级 + 三元组校验），不过拒跑")
+    p_selftest.set_defaults(fn=cmd_selftest)
+
+    args = parser.parse_args(argv[1:])
+    return args.fn(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

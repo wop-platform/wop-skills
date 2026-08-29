@@ -1,0 +1,32 @@
+{
+  "apis": [
+    {
+      "apiFullPath": "/gateway/logistics.waybill.sync",
+      "apiName": "运单同步",
+      "apiDescription": "物流运单状态同步查询",
+      "httpRequestMethod": "POST",
+      "contentType": "json",
+      "queryFlag": true,
+      "idempotentFlag": true,
+      "groupTag": "logistics",
+      "businessDomainCode": "logistics",
+      "versionNumber": "1.0.2",
+      "versionStatus": "full",
+      "updatedAt": "2026-08-20T08:00:00Z"
+    },
+    {
+      "apiFullPath": "/gateway/order.create",
+      "apiName": "订单创建",
+      "apiDescription": "创建物流订单（写操作）",
+      "httpRequestMethod": "POST",
+      "contentType": "json",
+      "queryFlag": false,
+      "idempotentFlag": false,
+      "groupTag": "order",
+      "businessDomainCode": "order",
+      "versionNumber": "1.1.0",
+      "versionStatus": "gray",
+      "updatedAt": "2026-08-25T10:30:00Z"
+    }
+  ]
+}
