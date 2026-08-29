@@ -274,14 +274,18 @@ class TestSelftestDefensiveLayers:  # L2/L3 防御分支（模块级：篡改向
 
 class TestConfigFileBranches:  # _read_key_material 文件三分支
     def test_key_file_not_found(self):
-        r = run_cli("sign", "POST", "/p", env=env_ok(WOP_PRIVATE_KEY_FILE="/nonexistent/k"))
+        e = env_ok(WOP_PRIVATE_KEY_FILE="/nonexistent/k")
+        e.pop("WOP_PRIVATE_KEY")
+        r = run_cli("sign", "POST", "/p", env=e)
         assert r.returncode == 2 and "密钥文件不存在" in r.stderr
 
     def test_key_file_wide_permissions(self, tmp_path):
         f = tmp_path / "k.b64"
         f.write_text(K3072["privatePkcs8B64"])
         f.chmod(0o644)
-        r = run_cli("sign", "POST", "/p", env=env_ok(WOP_PRIVATE_KEY_FILE=str(f)))
+        e = env_ok(WOP_PRIVATE_KEY_FILE=str(f))
+        e.pop("WOP_PRIVATE_KEY")
+        r = run_cli("sign", "POST", "/p", env=e)
         assert r.returncode == 2 and "权限过宽" in r.stderr
 
     def test_bad_suite_env(self):
@@ -357,13 +361,13 @@ class TestApiRealDescribe:
 class TestDiagnoseDoctorDefensive:
     def test_catalog_missing_die(self, monkeypatch, tmp_path):
         mod = load_cli("wop_diag1")
+        f = tmp_path / "r.json"
+        f.write_text('{"code": "OP_GW_1001"}', encoding="utf-8")
 
         def boom():
             raise mod.ConfigError("错误码目录缺失")
         monkeypatch.setattr(mod, "_error_codes", boom)
-        rc = mod.cmd_diagnose(SimpleNamespace(response=str(tmp_path / "f.json")))
-        # 文件先不可达——两步分开断言
-        assert rc in (2,)
+        assert mod.cmd_diagnose(SimpleNamespace(response=str(f))) == 2
 
     def test_doctor_low_sdk_version(self, monkeypatch):
         import wop_sdk
@@ -398,3 +402,32 @@ class TestLocateVectorsExhausted:
         monkeypatch.setattr(Path, "is_file", lambda self: False)
         with pytest.raises(FileNotFoundError):
             mod.locate_vectors()
+
+
+class TestSm2Sampling:
+    def test_resample_when_out_of_range(self, monkeypatch, tmp_path):
+        # d 首采样越界（>= n）→ 重采样入域（覆盖 while 分支）
+        mod = load_cli("wop_sm2r")
+        import os as _os
+        real = _os.urandom
+        state = {"n": 0}
+
+        def fake(k):
+            state["n"] += 1
+            if state["n"] == 1:
+                return b"\xff" * 32  # 越界
+            return real(k)
+        monkeypatch.setattr(_os, "urandom", fake)
+        try:
+            rc = mod.cmd_keygen(SimpleNamespace(suite="WOP-SM2-SM3", out_dir=str(tmp_path)))
+            assert rc == 0
+        finally:
+            pass
+
+    def test_readback_mismatch(self, monkeypatch, tmp_path):
+        mod = load_cli("wop_sm2m")
+        import wop_sdk.keys as wk
+        real = wk.load_sm2_private_key
+        monkeypatch.setattr(wk, "load_sm2_private_key", lambda m: b"WRONG-32-BYTES----------------!!")
+        rc = mod.cmd_keygen(SimpleNamespace(suite="WOP-SM2-SM3", out_dir=str(tmp_path)))
+        assert rc == 1  # 回读不一致 → 内部错误
