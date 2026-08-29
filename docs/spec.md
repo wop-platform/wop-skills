@@ -166,14 +166,22 @@ wop-skills/  (github.com/wop-platform/wop-skills，与 6 SDK 同组织)
 | 5 | TS/PHP SDK 仅 RSA，agent 生成 SM2 代码踩空 | 语言速查页显式套件矩阵 |
 | 6 | factory 体系自身维护成本（网关事故前科） | 移植修复后基线，不从零搭；门灵敏度先行（铁律 5） |
 
-## 6. 交付顺序（待确认的建议）
+## 6. 交付顺序（factory 门已提前落地）
 
-**skill 内容先行、factory 门后置**：
-- 第一周：wop-cli 基座 + API 发现契约（人工 MR 合并）
-- 第二周：补 .factory 门——此时已有真实变更流可供 triage/holdout 校准门灵敏度，符合铁律 5"未证明的门不是门"
+原建议"skill 内容先行、factory 门后置"中的治理基建已提前完成（2026-08-29）：
+.factory 工具链移植（上游锚点 04ee96d = 网关验证基线）、验证门
+（guard self-check + SKILL.md lint R1–R6 + pytest 挂起位）、突变证据
+（kill rate 8/8=100%，负例 2/2，含 B-102 门缺陷发现修复记录）。
+
+剩余顺序：
+1. wop-cli CLI 载体（八件套）+ requirements.lock + tests/（pytest 门激活）
+2. API 发现契约 contracts/api-discovery.openapi.yaml + mocks/（提交平台并行实现）
+3. wop-dev / wop-troubleshoot 知识层（含 §4 全部内容要求）
+4. SECURITY.md S6 主动防御的测试载体（argv 检测负向量）
 
 ## 7. 开放项
 
-- [ ] 交付顺序确认（§6 建议待用户拍板）
+- [x] ~~factory 门落地~~（2026-08-29 提前完成，kill rate 8/8）
 - [ ] 进入实施的方式：make-plan 分阶段计划（推荐，跨仓依赖多）vs 直接开干
 - [ ] API 发现端点宿主定夺（开发者中心 vs gtsp-wop-service 开放接口）——平台侧决策，契约不阻塞
+- [ ] README.md（安装指引：三件套说明——载体落地后编写）

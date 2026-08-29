@@ -1,6 +1,5 @@
 # MISSION — wop-skills 工厂使命（治理文件）
-
-> 状态：S0 草案 v0.1（2026-08-29，移植自 gtsp-wop-gateway/MISSION.md，按文档型仓库适配）。
+> 状态：v0.2 生效（2026-08-29 工厂初始化完成：验证门 + 突变证据 kill rate 8/8；上游锚点 04ee96d）。
 > 本文件属于治理层：**工厂永不可修改**（铁律 3，由 `.factory/guard.py` 机械化执行）。
 > 配套：意图与验收判据 [docs/intent.md](docs/intent.md)；设计规格 [docs/spec.md](docs/spec.md)（规格层，工厂可处理）。
 
