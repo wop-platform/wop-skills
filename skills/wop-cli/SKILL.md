@@ -3,7 +3,7 @@ name: wop-cli
 description: WOP 网关官方 CLI 基座——零代码执行（签名/调用/验响应全链路）与联调排错（draft 对拍/离线验签）。商户 agent 对接 wop-gateway API 的必备工具层。使用前必读 SECURITY.md 安全纪律。
 ---
 
-> 对齐三元组：crypto-strategy-spec v0.3-reviewed + wop-sdk-spec v1.0-ratified + wop-python-sdk 含 93b43ba 修复链（pypi 0.1.0 缺该链，暂锁 git@990107b；`wop selftest` 行为断言是最终校验）
+> 对齐三元组：crypto-strategy-spec v0.3-reviewed + wop-sdk-spec v1.0-ratified + wop-python-sdk ≥0.1.1（0.1.0 缺尾随位修复链不可用；`wop selftest` 行为断言是最终校验）
 > 状态：接口已冻结（spec.md 决策 #5）；CLI 载体实施中，`selftest`/`doctor` 首个可用版本落地前，本文命令表仅供预览
 > **安全纪律：先读 [SECURITY.md](../../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**
 

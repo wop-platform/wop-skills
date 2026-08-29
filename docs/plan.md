@@ -60,7 +60,7 @@ Phase 2/3/4 的 CLI 部分标 [人工]；其余可派工厂。
 - `skills/wop-cli/scripts/wop`：python 单文件入口，argparse 子命令骨架；**main 首行实现 S6 argv 防御**（检测 PEM 头/长 Base64 特征 → 退出码 3 + S2 指引）
 - `keygen --suite <S> [--out-dir ~/.wop]`：RSA 用 cryptography 生成（位宽校验 3072/4096）→ PKCS8(d)/SPKI(pub) Base64；SM2 随机 32B d + sm2_derive_public_hex → 04‖X‖Y 65B Base64；私钥写 0600 文件，stdout 只出公钥+路径（S4/S5）
 - `selftest` 分层：L1 依赖导入（cryptography/gmssl/SDK）→ L2 formatRules 12 条全量（借 wop_sdk.encoding/digest 校验函数，哨兵 FORMAT_RULES_COUNT=12）→ L3 密码学字节级（signature/digest 段正向量 + 2 负向量必须拒）→ L4 keys 节构造 WopClient 跑 L0/L2 build_request 冒烟 → L5 三元组（SDK `__version__` 达标 + fixture MD5 == 1033af2c…）任一层红 → 退出码 2
-- `skills/wop-cli/scripts/requirements.lock`：`wop-python-sdk @ git+https://github.com/wop-platform/wop-python-sdk@990107b`——**pypi 0.1.0 行为不达标**（13:03 发版早于 14:48 尾随位修复链 93b43ba…990107b，实测 `b64url_decode("aE")` 未拒；待 pypi ≥0.1.1 且 selftest 行为校验通过后切版本号引用。版本号不可信、行为可信：selftest L3 是最终守门）+ `tests/fixtures/crypto-vectors.json` 字节副本（MD5 断言锚）；WOP_SDK_PATH env 支持本地覆盖
+- `skills/wop-cli/scripts/requirements.lock`：锁 `wop-python-sdk==0.1.1`（pypi 已发布并行为验收通过：`b64url_decode("aE")` 拒 / `"AA"→0x00` / 非法字符拒，2026-08-29；0.1.0 发版早于修复链 93b43ba…990107b 不可用。版本号不可信、行为可信：selftest L3 仍是最终守门）+ `tests/fixtures/crypto-vectors.json` 字节副本（MD5 断言锚）；WOP_SDK_PATH env 支持本地覆盖
 - `tests/test_keygen_selftest.py`：keygen 三套件格式断言（SM2 65B 点/d 32B、RSA 位宽、0600 权限、stdout 零私钥）；selftest 分层逻辑断言；S6 argv 负向量（PEM 串入参必拒 rc=3）
 
 **Documentation references**
