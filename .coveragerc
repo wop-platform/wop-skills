@@ -1,0 +1,7 @@
+[run]
+branch = True
+parallel = True
+include = */skills/wop-cli/scripts/wop
+
+[report]
+show_missing = True

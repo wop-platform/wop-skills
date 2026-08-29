@@ -416,14 +416,16 @@ def load_client_config(require_gateway: bool = True):
 def _parse_body(body_arg: str):
     """--body 接受 JSON 文本或 @file 路径。"""
     if body_arg.startswith("@"):
-        raw = Path(body_arg[1:]).read_text(encoding="utf-8")
+        try:
+            raw = Path(body_arg[1:]).read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ConfigError(f"--body 文件不可读：{exc}")
     else:
         raw = body_arg
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
         raise ConfigError(f"--body 不是合法 JSON：{exc}")
-
 
 def _emit_draft(draft) -> None:
     body_text = draft.wire_body.decode("utf-8", errors="replace") if draft.wire_body else ""
