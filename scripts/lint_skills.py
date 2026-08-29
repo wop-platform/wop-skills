@@ -84,8 +84,24 @@ def violations() -> list[str]:
             if aid not in itext:
                 out.append(f"spec:lint-intent R6 违规：docs/intent.md 缺判据 {aid}")
 
-    return out
+    # R7 矩阵漂移：spec-matrix 列出的测试名必须真实存在（MISSION 铁律 7 载体）
+    matrix = REPO / "docs" / "spec-matrix.md"
+    if not matrix.is_file():
+        out.append("spec:lint-matrix R7 违规：docs/spec-matrix.md 不存在")
+    else:
+        import re as _re
+        mtext = matrix.read_text(encoding="utf-8")
+        test_names = set(_re.findall(r"`(test_[a-z0-9_]+)`", mtext))
+        tests_blob = "\n".join(
+            f.read_text(encoding="utf-8") for f in REPO.glob("tests/*.py")
+        )
+        for name in sorted(test_names):
+            if name not in tests_blob:
+                out.append(
+                    f"spec:lint-matrix R7 违规：矩阵测试名不存在于 tests/ → {name}"
+                )
 
+    return out
 
 def main() -> int:
     try:
@@ -98,9 +114,8 @@ def main() -> int:
         for v in found:
             print(f"  - {v}", file=sys.stderr)
         return 1
-    print("LINT: 通过（R1–R6 全绿）")
+    print("LINT: 通过（R1–R7 全绿）")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

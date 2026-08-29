@@ -91,6 +91,33 @@
       "replace": "# wop-cli 命令手册\n\n> 命令语义以 selftest 实际输出为准。",
       "gate": "tests",
       "expect_block": false
+    },
+    {
+      "id": "B-201",
+      "description": "行为破坏：移除 S6 argv 防御调用（SECURITY 主防线）→ S6 测试应红",
+      "target": "skills/wop-cli/scripts/wop",
+      "find": "    if not guard_argv(argv[1:]):  # spec:SECURITY-S6 main 首行防御",
+      "replace": "    if False:  # 防御被移除",
+      "gate": "tests",
+      "expect_block": true
+    },
+    {
+      "id": "B-202",
+      "description": "行为破坏：selftest 向量 MD5 锚篡改 → 三元组校验测试应红",
+      "target": "skills/wop-cli/scripts/wop",
+      "find": "VECTORS_MD5 = \"1033af2c35b498b479e41487ccbda862\"",
+      "replace": "VECTORS_MD5 = \"00000000000000000000000000000000\"",
+      "gate": "tests",
+      "expect_block": true
+    },
+    {
+      "id": "B-203",
+      "description": "行为破坏：diagnose 码表路径改向不存在文件 → 62 码全样本测试应红",
+      "target": "skills/wop-cli/scripts/wop",
+      "find": "p = Path(__file__).resolve().parent / \"error-codes.json\"",
+      "replace": "p = Path(__file__).resolve().parent / \"error-codes-MISSING.json\"",
+      "gate": "tests",
+      "expect_block": true
     }
   ]
 }
