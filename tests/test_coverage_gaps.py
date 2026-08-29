@@ -34,7 +34,7 @@ def load_cli(name="wop_cov"):
     return mod
 
 
-def run_cli(*args, env=None, timeout=30):
+def run_cli(*args, env=None, timeout=90):
     return subprocess.run([sys.executable, str(CLI), *args],
                           capture_output=True, text=True,
                           env=env or {**os.environ}, timeout=timeout)

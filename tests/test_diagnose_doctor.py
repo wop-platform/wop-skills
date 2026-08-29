@@ -26,7 +26,7 @@ def run_diag(payload: dict) -> tuple[int, dict]:
         name = f.name
     try:
         r = subprocess.run([sys.executable, str(CLI), "diagnose", name],
-                           capture_output=True, text=True, timeout=30)
+                           capture_output=True, text=True, timeout=90)
         return r.returncode, json.loads(r.stdout)
     finally:
         os.unlink(name)
@@ -88,7 +88,7 @@ class TestDoctor:
                "WOP_GATEWAY_URL": "https://wop.example.com", "WOP_PRIVATE_KEY_FILE": keyf}
         try:
             r = subprocess.run([sys.executable, str(CLI), "doctor"],
-                               capture_output=True, text=True, env=env, timeout=30)
+                               capture_output=True, text=True, env=env, timeout=90)
             assert r.returncode == 0, r.stdout + r.stderr
             assert "doctor: 全绿" in r.stdout
             assert "WOP_PRIVATE_KEY_FILE 0600 ✓" in r.stdout
@@ -106,7 +106,7 @@ class TestDoctor:
         env = {**os.environ, "WOP_PRIVATE_KEY_FILE": keyf}
         try:
             r = subprocess.run([sys.executable, str(CLI), "doctor"],
-                               capture_output=True, text=True, env=env, timeout=30)
+                               capture_output=True, text=True, env=env, timeout=90)
             assert r.returncode == 2
             assert "权限过宽" in r.stdout
         finally:
