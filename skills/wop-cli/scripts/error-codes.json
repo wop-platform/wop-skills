@@ -1,0 +1,568 @@
+{
+  "source": "gtsp-wop-gateway GatewayExceptionEnum.java",
+  "generated_baseline": 62,
+  "i7_codes": [
+    "OP_GW_1022",
+    "OP_GW_2005"
+  ],
+  "codes": [
+    {
+      "code": "OP_GW_1001",
+      "description": "appKey 为空或应用不存在",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 x-wop-appkey 是否正确传递",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1002",
+      "description": "应用已停用",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查应用状态，联系运营启用",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1003",
+      "description": "无 API 权限（未授权或已过期）",
+      "errorType": "BIZ",
+      "http": 403,
+      "solution": "检查应用是否已授权该 API 且授权在有效期内",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1005",
+      "description": "IP 白名单未通过",
+      "errorType": "BIZ",
+      "http": 403,
+      "solution": "检查客户端 IP 是否在应用白名单中",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1006",
+      "description": "签名校验失败",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查签名算法、密钥及待签名串拼接规则",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1007",
+      "description": "签名时效过期（timestamp 超出窗口）",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 x-wop-timestamp（毫秒时间戳）与服务器时间差是否在 expiredSeconds 窗口内",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1008",
+      "description": "IP 黑名单拦截",
+      "errorType": "BIZ",
+      "http": 403,
+      "solution": "请求 IP 命中平台黑名单",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1009",
+      "description": "nonce 重复（防重放）",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 nonce 是否已使用过",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1010",
+      "description": "缺少 x-wop-sign 请求头",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查签名头是否携带",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1011",
+      "description": "x-wop-sign 格式错误",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 securityReq 与 authString 的空格分隔及 <protocolVersion>/<expiredSeconds>/<signedHeaders>/<signature> 四段结构",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1012",
+      "description": "不支持的签名协议版本",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 protocolVersion 是否为 v1",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1013",
+      "description": "securityReq 无法识别或格式错误",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 securityReq 是否为 WOP-<密钥算法>-<摘要算法> 结构",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1014",
+      "description": "不支持的密钥算法/摘要算法或密钥长度非法",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查支持的套件组合（RSA3072/RSA4096/SM2）",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1015",
+      "description": "签名时效参数非法（expiredSeconds 缺失/超范围）",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 expiredSeconds 取值在 (0, 86400] 秒",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1016",
+      "description": "signature 为空",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查签名串是否完整",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1017",
+      "description": "signedHeaders 缺失或声明不完整",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 signedHeaders 必含标头及 x-wop-encrypt 参与签名",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1018",
+      "description": "请求体摘要缺失或不匹配",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 x-wop-content-sha256 与请求体是否一致",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1019",
+      "description": "缺少 x-wop-nonce（防重放参数缺失）",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 nonce 头是否携带",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1020",
+      "description": "应用未配置 IP 白名单",
+      "errorType": "BIZ",
+      "http": 403,
+      "solution": "联系运营在应用白名单中配置允许 IP",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1021",
+      "description": "老商户固定密钥认证失败（fixed-key 不匹配）",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 fixed-key 与平台登记的 appSecret 是否一致",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_1022",
+      "description": "签名验证失败",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查签名密钥与签名串组装是否符合协议文档",
+      "segment": "鉴权/认证",
+      "i7": true
+    },
+    {
+      "code": "OP_GW_1023",
+      "description": "请求体摘要缺失或不匹配（x-wop-content-digest）",
+      "errorType": "BIZ",
+      "http": 401,
+      "solution": "检查 x-wop-content-digest 值：<sha-256|sm3> + 恰一空格 + 64 位小写 hex，摘要对象为请求体线上原始字节",
+      "segment": "鉴权/认证",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_2001",
+      "description": "必填字段缺失",
+      "errorType": "BIZ",
+      "http": 400,
+      "solution": "检查 api_para 表中 must_fill_flag=1 的字段是否传递",
+      "segment": "参数校验",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_2002",
+      "description": "加密指令解析失败",
+      "errorType": "BIZ",
+      "http": 400,
+      "solution": "检查 x-wop-encrypt Header 格式是否正确",
+      "segment": "参数校验",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_2003",
+      "description": "L2 加密指令缺少 dek",
+      "errorType": "BIZ",
+      "http": 400,
+      "solution": "检查 L2 加密请求是否携带 x-wop-encrypt 的 dek 段",
+      "segment": "参数校验",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_2004",
+      "description": "DEK alg 与套件族不符",
+      "errorType": "BIZ",
+      "http": 400,
+      "solution": "检查 x-wop-encrypt 的 dek 段 alg：RSA 族须 AES-256-GCM，SM2 族须 SM4-GCM（公开映射知识）",
+      "segment": "参数校验",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_2005",
+      "description": "解密失败",
+      "errorType": "BIZ",
+      "http": 400,
+      "solution": "检查加密密钥与加密指令是否符合协议文档",
+      "segment": "参数校验",
+      "i7": true
+    },
+    {
+      "code": "OP_GW_2006",
+      "description": "请求体超过大小上限",
+      "errorType": "BIZ",
+      "http": 400,
+      "solution": "检查请求体大小：按线上总字节计（含 Base64 膨胀）不超过 10MB",
+      "segment": "参数校验",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_3001",
+      "description": "接口状态不允许调用（草稿/已下线）",
+      "errorType": "BIZ",
+      "http": 403,
+      "solution": "检查接口发布状态",
+      "segment": "业务规则",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_3002",
+      "description": "能力包未启用",
+      "errorType": "BIZ",
+      "http": 403,
+      "solution": "检查能力表状态",
+      "segment": "业务规则",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_4001",
+      "description": "下游服务超时（含重试耗尽）",
+      "errorType": "EXT",
+      "http": 504,
+      "solution": "检查下游服务响应时间及网络连通性",
+      "segment": "依赖方异常",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_4002",
+      "description": "下游服务不可达",
+      "errorType": "EXT",
+      "http": 504,
+      "solution": "检查下游服务状态及路由地址配置",
+      "segment": "依赖方异常",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_4003",
+      "description": "下游响应为空",
+      "errorType": "EXT",
+      "http": 504,
+      "solution": "检查下游服务返回内容",
+      "segment": "依赖方异常",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_4004",
+      "description": "下游连接失败/超时（重试耗尽）",
+      "errorType": "EXT",
+      "http": 504,
+      "solution": "检查下游服务状态及网络连通性",
+      "segment": "依赖方异常",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_4005",
+      "description": "路由调用异常（响应解析等客户端异常）",
+      "errorType": "EXT",
+      "http": 504,
+      "solution": "检查下游服务响应格式及网关配置",
+      "segment": "依赖方异常",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5001",
+      "description": "系统内部异常",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "联系运维或开发排障，请携带 traceId",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5002",
+      "description": "配置缺失（路由配置为空等）",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查 API 定义中域名和路径配置",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5003",
+      "description": "请求解密失败（DEK 解包失败）",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查密钥集与加密算法是否匹配",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5004",
+      "description": "响应加密失败",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查密钥与算法配置",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5005",
+      "description": "密钥已过期且无可用密钥",
+      "errorType": "BIZ",
+      "http": 500,
+      "solution": "检查 app_secret 表中是否有有效密钥集",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5006",
+      "description": "字段映射失败（类型转换错误）",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查 api_field_mapp 表字段类型与请求值格式",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5007",
+      "description": "响应为空（Pipeline 无输出）",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "联系运维排查响应链路",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5008",
+      "description": "后端服务 URL 或 API 路径为空",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查后端服务地址与 API 路径配置",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5009",
+      "description": "API 无全量发布版本",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查 API 是否存在已发布的全量版本",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5010",
+      "description": "解密未找到匹配密钥集",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查密钥集与验签命中的密钥是否一致",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5011",
+      "description": "无法确定解密算法套件",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查加密指令与密钥套件配置",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5012",
+      "description": "密钥集缺少平台私钥",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查密钥集中是否登记平台私钥",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5013",
+      "description": "L2 请求体缺少 encrypted 密文字段",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查 L2 报文包装格式",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5014",
+      "description": "解密引擎执行失败",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查密钥与算法参数是否正确",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5015",
+      "description": "无法确定加密套件",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查出站加密指令与密钥套件配置",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5016",
+      "description": "响应 DEK 包裹失败",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查商户公钥与算法配置",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5017",
+      "description": "无法确定出站签名套件",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "检查入站签名套件是否在上下文中保留",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5018",
+      "description": "出站加签失败",
+      "errorType": "SYS",
+      "http": 500,
+      "solution": "联系运维排查出站签名链路",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5019",
+      "description": "出站加签未找到匹配密钥集",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查密钥集与入站验签是否一致",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5020",
+      "description": "出站加签密钥已失效",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查密钥有效期配置",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5021",
+      "description": "出站加签密钥集缺少平台私钥",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查密钥集中是否登记平台私钥",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5022",
+      "description": "字段目标路径结构冲突",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查 api_field_mapp 目标路径与报文结构是否匹配",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5023",
+      "description": "字段路径表达式非法",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查 api_field_mapp 路径表达式语法",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_5024",
+      "description": "出参映射失败",
+      "errorType": "DAT",
+      "http": 500,
+      "solution": "检查 api_field_mapp 出参规则与下游响应格式",
+      "segment": "平台内部",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_9001",
+      "description": "请求限流（达到 QPS 配额）",
+      "errorType": "BIZ",
+      "http": 429,
+      "solution": "降低请求频率，稍后重试",
+      "segment": "限流/降级",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_9002",
+      "description": "接口熔断中",
+      "errorType": "BIZ",
+      "http": 429,
+      "solution": "等待熔断恢复后重试",
+      "segment": "限流/降级",
+      "i7": false
+    },
+    {
+      "code": "OP_GW_9003",
+      "description": "后端服务并发已达上限",
+      "errorType": "BIZ",
+      "http": 429,
+      "solution": "降低并发或联系运维调整后端服务 maxConcurrent 配置",
+      "segment": "限流/降级",
+      "i7": false
+    }
+  ]
+}

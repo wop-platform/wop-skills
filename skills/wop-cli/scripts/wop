@@ -10,7 +10,7 @@
 """
 
 from __future__ import annotations
-
+import stat
 import argparse
 import base64
 import hashlib
@@ -367,6 +367,338 @@ def cmd_selftest(args) -> int:
     print("selftest: 全绿")
     return EXIT_OK
 
+# ---------------------------------------------------------------------------
+# 运行配置（spec.md 决策 #6 / SECURITY.md S1）——全部经环境变量，零配置文件私钥
+# ---------------------------------------------------------------------------
+class ConfigError(Exception):
+    pass
+
+
+def _read_key_material(value_env: str, file_env: str) -> str:
+    val = os.environ.get(value_env)
+    if val and val.strip():
+        return val.strip()
+    path = os.environ.get(file_env)
+    if path:
+        p = Path(path).expanduser()
+        if not p.is_file():
+            raise ConfigError(f"密钥文件不存在：{p}")
+        mode = stat.S_IMODE(p.stat().st_mode)
+        if mode & 0o077:
+            raise ConfigError(f"密钥文件权限过宽（{oct(mode)}，须 0600）：{p}")
+        return p.read_text(encoding="utf-8").strip()
+    raise ConfigError(
+        f"缺少密钥：设置 {value_env}（材料值）或 {file_env}（文件路径，权限 0600）——SECURITY.md S1"
+    )
+
+
+def load_client_config(require_gateway: bool = True):
+    """装配 WopConfig；任何缺失 → ConfigError（exit 2）。"""
+    from wop_sdk import WopConfig
+    app_key = os.environ.get("WOP_APP_KEY", "").strip()
+    suite = os.environ.get("WOP_SUITE", "").strip()
+    if not app_key:
+        raise ConfigError("缺少 WOP_APP_KEY")
+    if suite not in SUITES:
+        raise ConfigError(f"WOP_SUITE 缺失或非法（当前：{suite!r}；可选 {' / '.join(SUITES)}）")
+    gateway = os.environ.get("WOP_GATEWAY_URL", "").strip()
+    if require_gateway and not gateway:
+        raise ConfigError("缺少 WOP_GATEWAY_URL（如 https://wop.example.com）")
+    return WopConfig(
+        app_key=app_key,
+        suite=suite,
+        merchant_private_key=_read_key_material("WOP_PRIVATE_KEY", "WOP_PRIVATE_KEY_FILE"),
+        platform_public_key=_read_key_material("WOP_PLATFORM_PUBLIC_KEY", "WOP_PLATFORM_PUBLIC_KEY_FILE"),
+        gateway_base_url=gateway or None,
+    )
+
+
+def _parse_body(body_arg: str):
+    """--body 接受 JSON 文本或 @file 路径。"""
+    if body_arg.startswith("@"):
+        raw = Path(body_arg[1:]).read_text(encoding="utf-8")
+    else:
+        raw = body_arg
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ConfigError(f"--body 不是合法 JSON：{exc}")
+
+
+def _emit_draft(draft) -> None:
+    body_text = draft.wire_body.decode("utf-8", errors="replace") if draft.wire_body else ""
+    print(json.dumps({
+        "method": draft.method, "path": draft.path, "level": draft.level,
+        "headers": draft.headers, "wire_body": body_text,
+    }, ensure_ascii=False, indent=2))
+
+
+def cmd_sign(args) -> int:  # spec:#5-sign 对拍用：仅产 draft 不发送
+    try:
+        from wop_sdk import WopClient
+        client = WopClient(load_client_config(require_gateway=False))
+        body = _parse_body(args.body) if args.body else None
+        if args.level == "L2" and body is None:
+            return _die(EXIT_FAIL, "L2 封装需要明文 body")
+        draft = client.build_request(args.method, args.path, body, level=args.level)
+    except ConfigError as exc:
+        return _die(EXIT_CONFIG, str(exc))
+    except (ValueError, TypeError) as exc:  # build_request 直抛面（sdk 侦察 §2.4）
+        return _die(EXIT_CONFIG, f"请求构造参数错误：{exc}")
+    _emit_draft(draft)
+    return EXIT_OK
+
+
+def cmd_call(args) -> int:  # spec:#5-call 全链路：构造→发送→F6 验证
+    try:
+        from wop_sdk import WopClient
+        from wop_sdk.transports import UrllibTransport, send_draft
+        client = WopClient(load_client_config(require_gateway=True))
+        body = _parse_body(args.body) if args.body else None
+        if args.level == "L2" and body is None:
+            return _die(EXIT_FAIL, "L2 封装需要明文 body")
+        draft = client.build_request(args.method, args.path, body, level=args.level)
+        resp = send_draft(UrllibTransport(), client._config.gateway_base_url, draft)
+    except ConfigError as exc:
+        return _die(EXIT_CONFIG, str(exc))
+    except (ValueError, TypeError) as exc:
+        return _die(EXIT_CONFIG, f"请求构造参数错误：{exc}")
+    except OSError as exc:
+        return _die(EXIT_FAIL, f"网络错误：{exc}")
+
+    resp_body = resp.body or b""
+    # 网关错误信封：HTTP 非 2xx 且 code=OP_GW_*
+    envelope = None
+    try:
+        envelope = json.loads(resp_body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        envelope = None
+    if envelope and isinstance(envelope, dict) and str(envelope.get("code", "")).startswith("OP_GW_"):
+        print(json.dumps({
+            "gateway_error": envelope.get("code"),
+            "message": envelope.get("message"),
+            "http_status": resp.status,
+            "trace_id": envelope.get("traceId"),
+        }, ensure_ascii=False, indent=2))
+        return EXIT_FAIL
+    if envelope and isinstance(envelope, dict) and envelope.get("code") not in (None, "SUCCESS"):
+        print(json.dumps({  # HTTP 200 下游业务错误（网关透传）
+            "downstream_error": envelope.get("code"),
+            "message": envelope.get("message"),
+        }, ensure_ascii=False, indent=2))
+        return EXIT_FAIL
+    result = client.verify_response(resp.headers, resp_body, args.path, method=args.method)
+    if not result.ok:
+        return _die(EXIT_FAIL, f"响应校验失败：{result.reason}")  # I7：reason 模糊
+    text = (result.plaintext or b"").decode("utf-8", errors="replace")
+    print(text)
+    return EXIT_OK
+
+
+def cmd_verify(args) -> int:  # spec:#5-verify 离线验签（响应/回调）
+    try:
+        from wop_sdk import WopClient
+        client = WopClient(load_client_config(require_gateway=False))
+        headers = json.loads(Path(args.headers).read_text(encoding="utf-8"))
+        body = Path(args.body).read_bytes()
+        if args.callback:
+            result = client.verify_callback(headers, body, args.path)
+        else:
+            result = client.verify_response(headers, body, args.path, method=args.method)
+    except ConfigError as exc:
+        return _die(EXIT_CONFIG, str(exc))
+    except (OSError, json.JSONDecodeError) as exc:
+        return _die(EXIT_CONFIG, f"输入文件不可用：{exc}")
+    if not result.ok:
+        print(json.dumps({"ok": False, "reason": result.reason}, ensure_ascii=False))
+        return EXIT_FAIL
+    print(json.dumps({
+        "ok": True,
+        "plaintext": (result.plaintext or b"").decode("utf-8", errors="replace"),
+    }, ensure_ascii=False))
+    return EXIT_OK
+
+
+def _mocks_dir() -> Path:
+    return Path(__file__).resolve().parent.parent.parent.parent / "mocks" / "api-discovery"
+
+
+def cmd_api(args) -> int:  # spec:#3/#5-api 动态目录（--mock 读仓内 fixtures）
+    if args.api_cmd == "list":
+        data = _fetch_discovery("apis", mock=args.mock)
+        rows = data.get("apis", [])
+        print(f"{'apiFullPath':<40} {'method':<7} {'read':<5} {'ver':<8} status")
+        for a in rows:
+            print(f"{a['apiFullPath']:<40} {a['httpRequestMethod']:<7} "
+                  f"{'yes' if a['queryFlag'] else 'NO':<5} {a['versionNumber']:<8} {a['versionStatus']}")
+        print(f"\n{len(rows)} 个 API（授权范围）")
+        return EXIT_OK
+    # describe
+    path = args.path
+    if args.mock:
+        stem = path.rsplit("/", 1)[-1].replace(".", "-")
+        f = _mocks_dir() / f"describe.{stem}.json"
+        if not f.is_file():
+            return _die(EXIT_FAIL, f"mock 详情不存在：{f.name}（可先用 api list 查看可用 mock）")
+        print(json.dumps(json.loads(f.read_text(encoding="utf-8")), ensure_ascii=False, indent=2))
+        return EXIT_OK
+    data = _fetch_discovery(f"apis{path}", mock=False)
+    print(json.dumps(data, ensure_ascii=False, indent=2))
+    return EXIT_OK
+
+
+def _fetch_discovery(suffix: str, mock: bool):
+    if mock:
+        if suffix == "apis":
+            f = _mocks_dir() / "list.json"
+            return json.loads(f.read_text(encoding="utf-8"))
+    url = os.environ.get("WOP_DISCOVERY_URL", "").strip()
+    if not url:
+        raise ConfigError(
+            "实模式需要 WOP_DISCOVERY_URL（平台 API 发现端点，见 contracts/api-discovery.openapi.yaml）；"
+ "本地联调用 --mock"
+        )
+    import urllib.request
+    req = urllib.request.Request(
+        f"{url.rstrip('/')}/{suffix}",
+        headers={"X-WOP-AppKey": os.environ.get("WOP_APP_KEY", "")},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ConfigError(f"发现端点不可达/响应异常：{exc}")
+
+def _error_codes() -> dict:
+    p = Path(__file__).resolve().parent / "error-codes.json"
+    if not p.is_file():
+        raise ConfigError(f"错误码目录缺失：{p}（重新生成：python3 scripts/extract_error_codes.py）")
+    return json.loads(p.read_text(encoding="utf-8"))
+
+
+def cmd_diagnose(args) -> int:  # spec:#5-diagnose 三分流 + I7 排查方向（禁猜根因）
+    try:
+        resp = json.loads(Path(args.response).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        return _die(EXIT_CONFIG, f"响应文件不可读：{exc}")
+    if not isinstance(resp, dict):
+        return _die(EXIT_CONFIG, "响应须为 JSON 对象（信封）")
+    try:
+        catalog = _error_codes()
+    except ConfigError as exc:
+        return _die(EXIT_CONFIG, str(exc))
+    table = {c["code"]: c for c in catalog["codes"]}
+
+    code = str(resp.get("code", ""))
+    http_status = resp.get("http_status") or resp.get("httpStatus")
+    trace_id = resp.get("traceId") or resp.get("trace_id")
+
+    def out(d: dict) -> int:
+        d["trace_id"] = trace_id
+        print(json.dumps(d, ensure_ascii=False, indent=2))
+        return EXIT_OK
+
+    if code.startswith("OP_GW_"):
+        entry = table.get(code)
+        if entry is None:
+            return out({"code": code, "known": False,
+                        "next": "码表未收录——网关与 CLI 版本漂移？重跑 scripts/extract_error_codes.py"})
+        d = {"code": code, "known": True, "meaning": entry["description"],
+             "http": entry["http"], "solution": entry["solution"], "segment": entry["segment"]}
+        if entry["i7"]:  # I7：只给排查方向，禁猜根因（spec 风险/错误码侦察 §2.4）
+            d["i7_vague"] = True
+            if code == "OP_GW_1022":
+                d["investigate"] = [
+                    "对外消息不区分根因（密钥不符/签名串错位/头缺失共用此码）",
+                    "用 `wop sign` 对同一输入产出官方 draft，与自研实现逐 header 对拍",
+                    "高频根因：base64url 尾随位非规范、SM2 签名误用 DER 编码、C1C2C3 旧国标顺序",
+                    f"持 traceId 查网关 WARN 日志取真实根因（日志含密钥轮询细节）",
+                ]
+            else:
+                d["investigate"] = [
+                    "DEK 解包失败与解密引擎异常共用此码，不区分根因",
+                    "核查 x-wop-encrypt 的 dek 载荷 alg 与套件族一致（WOP-RSA*→AES-256-GCM / WOP-SM2→SM4-GCM）",
+                    "核查平台公钥是否为最新密钥集（密钥轮换后旧公钥解包必败）",
+                    f"持 traceId 查网关 WARN 日志取真实根因",
+                ]
+        return out(d)
+    if code:
+        return out({"code": code, "known": False, "branch": "downstream",
+                    "next": "HTTP 200 下游业务错误（网关透传）——联系该 API 提供方，不查网关码表"})
+    return out({"code": None, "branch": "network",
+                "next": "无错误信封——检查网络层/代理（连接、TLS、超时），或响应非网关所出"})
+
+
+def cmd_doctor(args) -> int:  # spec:#5-doctor 环境预检
+    issues: list = []
+    ok_items: list = []
+
+    v = sys.version_info
+    if v >= (3, 9):
+        ok_items.append(f"python {v.major}.{v.minor}.{v.micro} ✓")
+    else:
+        issues.append(f"python {v.major}.{v.minor} < 3.9")
+    try:
+        import wop_sdk
+        ver = tuple(int(x) for x in wop_sdk.__version__.split("."))
+        if ver >= MIN_SDK_VERSION:
+            ok_items.append(f"wop-python-sdk {wop_sdk.__version__} ✓")
+        else:
+            issues.append(f"wop-python-sdk {wop_sdk.__version__} < {MIN_SDK_VERSION}（pip install -r requirements.lock）")
+    except ImportError as exc:
+        issues.append(f"wop-python-sdk 未安装：{exc}")
+    for mod, hint in (("cryptography", "pip install cryptography"),
+                      ("gmssl", "pip install 'gmssl>=3.2.2'（SM2 套件必需）")):
+        try:
+            __import__(mod)
+            ok_items.append(f"{mod} ✓")
+        except ImportError:
+            issues.append(f"{mod} 未安装（{hint}）")
+    try:
+        p = locate_vectors()
+        md5 = hashlib.md5(p.read_bytes()).hexdigest()
+        if md5 == VECTORS_MD5:
+            ok_items.append(f"fixture {p.name} md5 ✓")
+        else:
+            issues.append(f"fixture 哈希漂移：{md5}（预期 {VECTORS_MD5}）")
+    except FileNotFoundError as exc:
+        issues.append(str(exc))
+    try:
+        _error_codes()
+        ok_items.append("error-codes.json ✓")
+    except (ConfigError, OSError, json.JSONDecodeError) as exc:
+        issues.append(f"错误码目录异常：{exc}")
+
+    env_map = {"WOP_APP_KEY": "appKey", "WOP_SUITE": "套件", "WOP_GATEWAY_URL": "网关地址"}
+    missing = [k for k in env_map if not os.environ.get(k, "").strip()]
+    if missing:
+        issues.append(f"环境变量未设（call 需要）：{', '.join(missing)}")
+    else:
+        ok_items.append("环境变量（APP_KEY/SUITE/GATEWAY_URL）✓")
+    for val_env, file_env in (("WOP_PRIVATE_KEY", "WOP_PRIVATE_KEY_FILE"),
+                              ("WOP_PLATFORM_PUBLIC_KEY", "WOP_PLATFORM_PUBLIC_KEY_FILE")):
+        fp = os.environ.get(file_env)
+        if fp:
+            from pathlib import Path as _P
+            import stat as _st
+            p = _P(fp).expanduser()
+            if not p.is_file():
+                issues.append(f"{file_env} 文件不存在：{p}")
+            elif _st.S_IMODE(p.stat().st_mode) & 0o077:
+                issues.append(f"{file_env} 权限过宽（须 0600）：{p}")
+            else:
+                ok_items.append(f"{file_env} 0600 ✓")
+
+    for line in ok_items:
+        print(f"  ok   {line}")
+    for line in issues:
+        print(f"  WARN {line}")
+    if issues:
+        sys.stderr.write(f"doctor：{len(issues)} 项待修复（配置面，exit 2）\n")
+        return EXIT_CONFIG
+    print("doctor: 全绿")
+    return EXIT_OK
+
 
 def main(argv: list) -> int:
     if not guard_argv(argv[1:]):  # spec:SECURITY-S6 main 首行防御
@@ -382,8 +714,48 @@ def main(argv: list) -> int:
     p_selftest = sub.add_parser("selftest", help="分层自测（向量字节级 + 三元组校验），不过拒跑")
     p_selftest.set_defaults(fn=cmd_selftest)
 
+    p_sign = sub.add_parser("sign", help="构造 draft（headers+wireBody），不发送——对拍用")
+    p_sign.add_argument("method", choices=["POST", "GET"])
+    p_sign.add_argument("path", help="如 /gateway/logistics.waybill.sync")
+    p_sign.add_argument("--body", help="JSON 文本或 @file")
+    p_sign.add_argument("--level", default="L0", choices=["L0", "L2"])
+    p_sign.set_defaults(fn=cmd_sign)
+
+    p_call = sub.add_parser("call", help="全链路调用：签名→发送→F6 验响应（写操作先经 S7 确认）")
+    p_call.add_argument("method", choices=["POST", "GET"])
+    p_call.add_argument("path", help="如 /gateway/order.create")
+    p_call.add_argument("--body", help="JSON 文本或 @file")
+    p_call.add_argument("--level", default="L0", choices=["L0", "L2"])
+    p_call.set_defaults(fn=cmd_call)
+
+    p_verify = sub.add_parser("verify", help="离线验签（平台响应 / 回调通知）")
+    p_verify.add_argument("--headers", required=True, help="headers JSON 文件")
+    p_verify.add_argument("--body", required=True, help="body 原始字节文件")
+    p_verify.add_argument("--path", required=True, help="触发请求的 path（回调取回调 path）")
+    p_verify.add_argument("--method", default="POST")
+    p_verify.add_argument("--callback", action="store_true", help="回调模式（方法恒 POST）")
+    p_verify.set_defaults(fn=cmd_verify)
+
+    p_api = sub.add_parser("api", help="API 目录（发现契约）")
+    p_api.add_argument("api_cmd", choices=["list", "describe"])
+    p_api.add_argument("path", nargs="?", help="describe 用：apiFullPath")
+    p_api.add_argument("--mock", action="store_true", help="读仓内 mock fixtures（免端点）")
+    p_api.set_defaults(fn=cmd_api)
+
+    p_diag = sub.add_parser("diagnose", help="解析网关错误响应 → 语义 + 排查路径")
+    p_diag.add_argument("response", help="错误响应 JSON 文件")
+    p_diag.set_defaults(fn=cmd_diagnose)
+
+    p_doctor = sub.add_parser("doctor", help="环境预检：依赖/密钥格式/配置完整性")
+    p_doctor.set_defaults(fn=cmd_doctor)
+
     args = parser.parse_args(argv[1:])
-    return args.fn(args)
+    if args.command == "api" and args.api_cmd == "describe" and not args.path:
+        return _die(EXIT_CONFIG, "api describe 需要 apiFullPath 参数")
+    try:
+        return args.fn(args)
+    except ConfigError as exc:
+        return _die(EXIT_CONFIG, str(exc))
 
 
 if __name__ == "__main__":

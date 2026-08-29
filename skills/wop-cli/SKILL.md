@@ -6,7 +6,7 @@ description: WOP 网关官方 CLI 基座——零代码执行（签名/调用/�
 # wop-cli（基座 skill）
 
 > 对齐三元组：crypto-strategy-spec v0.3-reviewed + wop-sdk-spec v1.0-ratified + wop-python-sdk ≥0.1.1（0.1.0 缺尾随位修复链不可用；`wop selftest` 行为断言是最终校验）
-> 状态：keygen/selftest 已可用（selftest 全绿方可使用）；doctor/api/call/sign/verify/diagnose 随 Phase 3/4 落地
+> 状态：八件套全部可用（keygen/selftest/doctor/api/call/sign/verify/diagnose）；实模式调用需平台网关与发现端点（spec §7 开放项）
 > **安全纪律：先读 [SECURITY.md](../../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**
 
 ## 何时用
@@ -19,14 +19,14 @@ description: WOP 网关官方 CLI 基座——零代码执行（签名/调用/�
 
 | 命令 | 用途 | 状态 |
 |------|------|------|
-| `wop keygen --suite WOP-SM2-SM3` | 生成密钥对；私钥写 0600 文件，stdout 只出公钥 | 载体实施中 |
-| `wop selftest` | 向量自测 + 三元组校验，不过拒跑 | 载体实施中 |
-| `wop doctor` | 依赖/密钥格式/配置预检 | 载体实施中 |
-| `wop api list` / `wop api describe <path>` | 动态 API 目录（支持 `--mock`） | 载体实施中 |
-| `wop call POST /gateway/<path> --body '<json>' [--level L2]` | 签名→发送→F6 验响应 | 载体实施中 |
-| `wop sign POST /gateway/<path> --body '<json>'` | 仅产 draft，对拍用 | 载体实施中 |
-| `wop verify --headers <f> --body <f>` | 离线验签（响应/回调） | 载体实施中 |
-| `wop diagnose <resp.json>` | 错误响应 → 排查路径 | 载体实施中 |
+| `wop keygen --suite WOP-SM2-SM3` | 生成密钥对；私钥写 0600 文件，stdout 只出公钥 | ✅ 可用 |
+| `wop selftest` | 向量自测 + 三元组校验，不过拒跑 | ✅ 可用 |
+| `wop doctor` | 依赖/密钥格式/配置预检 | ✅ 可用 |
+| `wop api list` / `wop api describe <path>` | 动态 API 目录（支持 `--mock`） | ✅ 可用 |
+| `wop call POST /gateway/<path> --body '<json>' [--level L2]` | 签名→发送→F6 验响应 | ✅ 可用 |
+| `wop sign POST /gateway/<path> --body '<json>'` | 仅产 draft，对拍用 | ✅ 可用 |
+| `wop verify --headers <f> --body <f>` | 离线验签（响应/回调） | ✅ 可用 |
+| `wop diagnose <resp.json>` | 错误响应 → 排查路径 | ✅ 可用 |
 
 命令语义细节（参数/退出码/错误分类）见 [references/commands.md](references/commands.md)。
 
