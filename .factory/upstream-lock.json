@@ -1,0 +1,5 @@
+{
+  "anchor": "04ee96d0ed9bf0cfd9cb95d4fdcd25af20254c14",
+  "synced_at": "2026-08-29T00:00:00+00:00",
+  "note": "首次移植锚点 = 网关 gtsp-wop-gateway 同款基线（经其 upstream-sync-check 验证与上游一致）；forge 未随锚点分发，上游 HEAD 的 DISTRIBUTION full 含 forge 属后续增量，追平时按 sync-from-upstream.sh 处理"
+}

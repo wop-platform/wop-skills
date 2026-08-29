@@ -1,0 +1,15 @@
+# 工厂运行时产物（DISTRIBUTION.json skip 语义）
+.factory/artifacts/
+.factory/locks/
+.factory/worktrees/
+.factory/var/
+.factory/metrics/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.coverage
+
+# macOS
+.DS_Store

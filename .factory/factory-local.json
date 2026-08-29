@@ -1,0 +1,35 @@
+{
+  "description": "工厂本地化配置（M4 本地化外置）：周界/判据措辞/门命令/仓库参数/上游指针是数据不是代码——guard.py / factory_lib.py / 链脚本 / prompts 零本地化、按 DISTRIBUTION.json full 分发；本文件每仓一份（skip 分发，永不跨仓覆盖）。fail-closed：缺失/损坏/缺键 = 使用方直接非零退出。周界须与 MISSION.md「周界（PERIMETER）」一致——guard.self_check 每次运行强制核对（MISSION 是真相源，本文件是机械化载体）；改本文件后必须重跑 .factory/mutations/run.py 重证 kill rate，evidence-stamp.json 指纹绑定会强制这一点。本仓为文档型仓库：doc-only 改动有执行载体（SKILL.md lint / 结构哨兵 / 反向核对矩阵），属工厂范围——与网关语义相反。",
+  "perimeter": [
+    "MISSION.md",
+    "SECURITY.md",
+    "docs/intent.md",
+    "skills/wop-cli/scripts/",
+    ".factory/",
+    "scripts/",
+    ".github/",
+    ".aliyun/",
+    ".gitignore",
+    "commitlint.config.js"
+  ],
+  "reject_guidance": {
+    "a": "判据a（使命一致）：写明落点——skills/、contracts/、mocks/、tests/ 或 docs/spec.md 中的哪个文件/目录；周界路径（MISSION.md/SECURITY.md/docs/intent.md/skills/wop-cli/scripts/）一律拆独立 issue 走人类 MR；",
+    "b": "判据b（可判定）：把完成标准写成可机械验证的形式——验收 = scripts/run_tests.sh 中具体门的断言（SKILL.md lint 的行数/安全纪律引用/链接规则、结构哨兵、CLI pytest 向量一致性、spec:<ID> 反向核对矩阵条目）。本仓 doc-only 改动有执行载体，属工厂范围；但「持续改进/优化体验」类开放措辞仍不可判定，须落到具体门断言；",
+    "c": "判据c（不触周界）：触及 PERIMETER 的部分拆成独立 issue 走人类 MR（清单见 MISSION.md；治理/判据/私钥边界默认全锁）；"
+  },
+  "repo_identity": "wop-skills",
+  "reading_scopes": [
+    "README.md",
+    "docs/",
+    "skills/",
+    "contracts/",
+    "mocks/",
+    "tests/"
+  ],
+  "review_basis": "docs/spec.md 决策条款 + docs/intent.md 验收判据（A1–A5）+ SECURITY.md 安全纪律",
+  "final_gate_cmd": "scripts/run_tests.sh --no-lock",
+  "pr_review_skills": [],
+  "upstream_repo": "im47cn/awesome-rules",
+  "upstream_path": "~/sources/awesome-rules",
+  "feedback_branch_prefix": "feedback/wop-skills"
+}

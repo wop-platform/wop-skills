@@ -1,0 +1,96 @@
+{
+  "$schema": "https://awesome-rules.invalid/factory/mutations-v0.json",
+  "description": "wop-skills 初始缺陷集（2026-08-29 首次移植）：篡改类 G-0xx（guard 门）+ 行为破坏类 B-1xx（tests 门 scripts/run_tests.sh --no-lock = guard self-check + SKILL.md lint R1–R6 + pytest 挂起）。负例（expect_block=false）验证门不全拒。kill 证据 = 注入后对应门变红；证据留档 EVIDENCE-<date>.md。",
+  "defects": [
+    {
+      "id": "G-01",
+      "description": "篡改治理宪法：MISSION.md 铁律降级为可选建议",
+      "target": "MISSION.md",
+      "find": "## 铁律",
+      "replace": "## 铁律（工厂可自行修订）",
+      "gate": "guard",
+      "expect_block": true
+    },
+    {
+      "id": "G-02",
+      "description": "篡改安全纪律宪法：SECURITY.md S1 私钥唯一通道加豁免口子",
+      "target": "SECURITY.md",
+      "find": "- **S1 唯一通道**",
+      "replace": "- **S1 唯一通道（紧急情况可豁免）**",
+      "gate": "guard",
+      "expect_block": true
+    },
+    {
+      "id": "G-03",
+      "description": "篡改判据层：intent.md 验收判据表加工厂放宽条款（MISSION 周界 + 铁律 8）",
+      "target": "docs/intent.md",
+      "find": "## 如何判断我们做到了",
+      "replace": "## 如何判断我们做到了（工厂可视情况放宽）",
+      "gate": "guard",
+      "expect_block": true
+    },
+    {
+      "id": "G-04",
+      "description": "篡改验证门自身：guard.py 周界配置载入改向不存在文件致门 fail-closed（exit 2 应视为拦截）",
+      "target": ".factory/guard.py",
+      "find": "cfg_path = Path(__file__).resolve().parent / \"factory-local.json\"",
+      "replace": "cfg_path = Path(__file__).resolve().parent / \"factory-local-DISABLED.json\"",
+      "gate": "guard",
+      "expect_block": true
+    },
+    {
+      "id": "G-05",
+      "description": "周界静默缩水：factory-local.json 删 perimeter 条目造成与 MISSION 集合不一致（self_check 应炸）",
+      "target": ".factory/factory-local.json",
+      "find": "\"MISSION.md\",\n    \"SECURITY.md\",",
+      "replace": "\"MISSION.md\",",
+      "gate": "guard",
+      "expect_block": true
+    },
+    {
+      "id": "G-06",
+      "description": "负例：载体层良性改动（commands.md 补充一行）不得被 guard 拦（门不全拒验证）",
+      "target": "skills/wop-cli/references/commands.md",
+      "find": "# wop-cli 命令手册",
+      "replace": "# wop-cli 命令手册\n\n> 命令语义以 selftest 输出为准。",
+      "gate": "guard",
+      "expect_block": false
+    },
+    {
+      "id": "B-101",
+      "description": "行为破坏：SKILL.md 注入 470+ 填充行突破 500 行上限（lint R2 应红）",
+      "target": "skills/wop-cli/SKILL.md",
+      "find": "# wop-cli（基座 skill）",
+      "replace": "# wop-cli（基座 skill）\n<!-- 注入开始 -->\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n<!-- 注入结束 -->",
+      "gate": "tests",
+      "expect_block": true
+    },
+    {
+      "id": "B-102",
+      "description": "行为破坏：SKILL.md 前 40 行抹除 SECURITY.md 安全纪律引用（lint R3 应红）",
+      "target": "skills/wop-cli/SKILL.md",
+      "find": "**安全纪律：先读 [SECURITY.md](../../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**",
+      "replace": "安全纪律详见仓库根目录的宪法文件。",
+      "gate": "tests",
+      "expect_block": true
+    },
+    {
+      "id": "B-103",
+      "description": "行为破坏：SKILL.md 场景剧本链接指向不存在文件（lint R4 应红）",
+      "target": "skills/wop-cli/SKILL.md",
+      "find": "[references/commands.md](references/commands.md)。\n\n## 场景剧本",
+      "replace": "[references/commands.md](references/commands-MISSING.md)。\n\n## 场景剧本",
+      "gate": "tests",
+      "expect_block": true
+    },
+    {
+      "id": "B-104",
+      "description": "负例：载体层良性改动（commands.md 补充一行）不得被 tests 门拦（门不全拒验证）",
+      "target": "skills/wop-cli/references/commands.md",
+      "find": "# wop-cli 命令手册",
+      "replace": "# wop-cli 命令手册\n\n> 命令语义以 selftest 实际输出为准。",
+      "gate": "tests",
+      "expect_block": false
+    }
+  ]
+}
