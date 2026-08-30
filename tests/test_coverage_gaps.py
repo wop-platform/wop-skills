@@ -20,6 +20,11 @@ from types import SimpleNamespace
 
 import pytest
 
+
+def _raise(exc: BaseException) -> None:
+    """异常注入辅助：mock 回调用（lambda 内不能 raise 语句）。"""
+    raise exc
+
 REPO = Path(__file__).resolve().parent.parent
 CLI = REPO / "skills" / "wop-cli" / "scripts" / "wop"
 VECTORS = json.loads((REPO / "tests" / "fixtures" / "crypto-vectors.json").read_text())
@@ -262,7 +267,9 @@ class TestSelftestDefensiveLayers:  # L2/L3 防御分支（模块级：篡改向
 
     def test_fixture_read_error_layer(self, monkeypatch):
         mod = load_cli("wop_def_read")
-        boom = SimpleNamespace(read_bytes=lambda: (_ for _ in ()).throw(PermissionError("denied")))
+        boom = SimpleNamespace(
+            read_bytes=lambda: iter(()).throw(PermissionError("denied"))
+        )
         monkeypatch.setattr(mod, "locate_vectors", lambda: boom)
         assert mod.cmd_selftest(SimpleNamespace()) == 2  # 191-192 except 分支
 
@@ -414,9 +421,8 @@ class TestSm2Sampling:
 
         def fake(k):
             state["n"] += 1
-            if state["n"] == 1:
-                return b"\xff" * 32  # 越界
-            return real(k)
+            return b"\xff" * 32 if state["n"] == 1 else real(k)
+
         monkeypatch.setattr(_os, "urandom", fake)
         try:
             rc = mod.cmd_keygen(SimpleNamespace(suite="WOP-SM2-SM3", out_dir=str(tmp_path)))

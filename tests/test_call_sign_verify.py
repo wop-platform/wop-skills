@@ -60,18 +60,15 @@ class MockGateway(BaseHTTPRequestHandler):
             self.send_response(200)
             for k, v in draft.headers.items():
                 self.send_header(k, v)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
         else:  # 网关错误信封（OP_GW_1022，I7 模糊码）
             body = json.dumps({"code": "OP_GW_1022", "message": "签名验证失败",
                                "traceId": "t-123", "timestamp": "2026-08-29T00:00:00Z"}).encode()
             self.send_response(401)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Content-Length", str(len(body)))
-            self.end_headers()
-            self.wfile.write(body)
+
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
 
     def log_message(self, *a):
         pass

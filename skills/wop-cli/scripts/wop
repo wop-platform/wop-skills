@@ -81,8 +81,15 @@ def locate_vectors() -> Path:
     if env:
         candidates.append(Path(env))
     here = Path(__file__).resolve().parent
-    candidates.append(here / "crypto-vectors.json")
-    candidates.append(here.parent.parent.parent / "tests" / "fixtures" / "crypto-vectors.json")
+    candidates.extend(
+        (
+            here / "crypto-vectors.json",
+            here.parent.parent.parent
+            / "tests"
+            / "fixtures"
+            / "crypto-vectors.json",
+        )
+    )
     for c in candidates:
         if c.is_file():
             return c
@@ -198,6 +205,7 @@ def cmd_selftest(args) -> int:
         _check(ver >= MIN_SDK_VERSION, "L1",
                f"wop-python-sdk {wop_sdk.__version__} < 最低要求 {MIN_SDK_VERSION}")
         return f"wop_sdk {wop_sdk.__version__}"
+
     layer("L1 依赖与版本", l1)
 
     # fixture 完整性（MD5 锚）——L2 前置但独立成层报告
@@ -211,6 +219,7 @@ def cmd_selftest(args) -> int:
                "fixture 被篡改或版本漂移，selftest 拒跑（spec:#9 / intent A4）")
         vectors_holder["v"] = json.loads(path.read_text(encoding="utf-8"))
         return f"{path.name} md5 ok"
+
     layer("LF fixture 锚", lf)
 
     def l2():
@@ -253,7 +262,8 @@ def cmd_selftest(args) -> int:
                     except ValueError:
                         pass
         _check(seen_h == HEADER_RULE_IDS and seen_b == B64URL_RULE_IDS, "L2", "子集不完备")
-        return f"formatRules 12/12（header 6 + b64url 6，正负全量）"
+        return "formatRules 12/12（header 6 + b64url 6，正负全量）"
+
     layer("L2 格式规则", l2)
 
     def l3():
@@ -348,6 +358,7 @@ def cmd_selftest(args) -> int:
             _check(set(body) == {"encrypted"} and isinstance(body["encrypted"], str), "L4",
                    f"{suite} L2 wire body 非信封 JSON：{str(body)[:40]}")
         return "三套件 L0/L2 构造冒烟（digest/sign/encrypt 头 + 信封体）"
+
     layer("L4 集成冒烟", l4)
 
     # L5 与 LF 合并语义：MD5 在 LF 已锚；此处输出三元组结论
@@ -355,6 +366,7 @@ def cmd_selftest(args) -> int:
         import wop_sdk
         return (f"crypto-spec v0.3-reviewed + sdk-spec v1.0-ratified + "
                 f"wop-python-sdk {wop_sdk.__version__} ✓ / vectors md5 {VECTORS_MD5[:8]}… ✓")
+
     layer("L5 三元组", l5)
 
     all_ok = True
@@ -378,8 +390,7 @@ def _read_key_material(value_env: str, file_env: str) -> str:
     val = os.environ.get(value_env)
     if val and val.strip():
         return val.strip()
-    path = os.environ.get(file_env)
-    if path:
+    if path := os.environ.get(file_env):
         p = Path(path).expanduser()
         if not p.is_file():
             raise ConfigError(f"密钥文件不存在：{p}")
@@ -419,13 +430,13 @@ def _parse_body(body_arg: str):
         try:
             raw = Path(body_arg[1:]).read_text(encoding="utf-8")
         except OSError as exc:
-            raise ConfigError(f"--body 文件不可读：{exc}")
+            raise ConfigError(f"--body 文件不可读：{exc}") from exc
     else:
         raw = body_arg
     try:
         return json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise ConfigError(f"--body 不是合法 JSON：{exc}")
+        raise ConfigError(f"--body 不是合法 JSON：{exc}") from exc
 
 def _emit_draft(draft) -> None:
     body_text = draft.wire_body.decode("utf-8", errors="replace") if draft.wire_body else ""
@@ -558,7 +569,7 @@ def _fetch_discovery(suffix: str, mock: bool):
     if not url:
         raise ConfigError(
             "实模式需要 WOP_DISCOVERY_URL（平台 API 发现端点，见 contracts/api-discovery.openapi.yaml）；"
- "本地联调用 --mock"
+            "本地联调用 --mock"
         )
     import urllib.request
     req = urllib.request.Request(
@@ -569,7 +580,7 @@ def _fetch_discovery(suffix: str, mock: bool):
         with urllib.request.urlopen(req, timeout=10) as r:
             return json.loads(r.read().decode("utf-8"))
     except (OSError, json.JSONDecodeError) as exc:
-        raise ConfigError(f"发现端点不可达/响应异常：{exc}")
+        raise ConfigError(f"发现端点不可达/响应异常：{exc}") from exc
 
 def _error_codes() -> dict:
     p = Path(__file__).resolve().parent / "error-codes.json"
@@ -614,14 +625,14 @@ def cmd_diagnose(args) -> int:  # spec:#5-diagnose 三分流 + I7 排查方向�
                     "对外消息不区分根因（密钥不符/签名串错位/头缺失共用此码）",
                     "用 `wop sign` 对同一输入产出官方 draft，与自研实现逐 header 对拍",
                     "高频根因：base64url 尾随位非规范、SM2 签名误用 DER 编码、C1C2C3 旧国标顺序",
-                    f"持 traceId 查网关 WARN 日志取真实根因（日志含密钥轮询细节）",
+                    "持 traceId 查网关 WARN 日志取真实根因（日志含密钥轮询细节）",
                 ]
             else:
                 d["investigate"] = [
                     "DEK 解包失败与解密引擎异常共用此码，不区分根因",
                     "核查 x-wop-encrypt 的 dek 载荷 alg 与套件族一致（WOP-RSA*→AES-256-GCM / WOP-SM2→SM4-GCM）",
                     "核查平台公钥是否为最新密钥集（密钥轮换后旧公钥解包必败）",
-                    f"持 traceId 查网关 WARN 日志取真实根因",
+                    "持 traceId 查网关 WARN 日志取真实根因",
                 ]
         return out(d)
     if code:
@@ -672,15 +683,12 @@ def cmd_doctor(args) -> int:  # spec:#5-doctor 环境预检
         issues.append(f"错误码目录异常：{exc}")
 
     env_map = {"WOP_APP_KEY": "appKey", "WOP_SUITE": "套件", "WOP_GATEWAY_URL": "网关地址"}
-    missing = [k for k in env_map if not os.environ.get(k, "").strip()]
-    if missing:
+    if missing := [k for k in env_map if not os.environ.get(k, "").strip()]:
         issues.append(f"环境变量未设（call 需要）：{', '.join(missing)}")
     else:
         ok_items.append("环境变量（APP_KEY/SUITE/GATEWAY_URL）✓")
-    for val_env, file_env in (("WOP_PRIVATE_KEY", "WOP_PRIVATE_KEY_FILE"),
-                              ("WOP_PLATFORM_PUBLIC_KEY", "WOP_PLATFORM_PUBLIC_KEY_FILE")):
-        fp = os.environ.get(file_env)
-        if fp:
+    for val_env, file_env in (("WOP_PRIVATE_KEY", "WOP_PRIVATE_KEY_FILE"), ("WOP_PLATFORM_PUBLIC_KEY", "WOP_PLATFORM_PUBLIC_KEY_FILE")):
+        if fp := os.environ.get(file_env):
             from pathlib import Path as _P
             import stat as _st
             p = _P(fp).expanduser()
