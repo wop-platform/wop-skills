@@ -9,6 +9,7 @@
 [![Coverage](https://img.shields.io/badge/line%20coverage-97%25%20(gate%20%E2%89%A595%25)-brightgreen)]()
 [![Python](https://img.shields.io/badge/python-%E2%89%A53.9-blue)]()
 [![Aligned](https://img.shields.io/badge/triple--aligned-crypto--spec%20v0.3%20%C2%B7%20sdk--spec%20v1.0%20%C2%B7%20sdk%200.1.1-success)]()
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/wop-platform/wop-skills?utm_source=oss&utm_medium=github&utm_campaign=wop-platform%2Fwop-skills&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 [特性](#-为什么存在--why-this-repo-exists) · [快速开始](#-快速开始--quick-start) · [命令](#-八件套命令--the-eight-commands) · [协议](#-协议心智模型--protocol-mental-model) · [安全](#-安全纪律--security-discipline) · [治理](#-质量与治理--quality--governance)
 
