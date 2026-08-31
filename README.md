@@ -99,6 +99,18 @@ mkdir -p ~/.agents/skills && cp -r wop-skills/skills/* ~/.agents/skills/
 > `skills/SECURITY.md` 随 `cp -r skills/*` 一并复制，`SKILL.md` 内的 `../SECURITY.md` 链接
 > 在安装目录中保持活链（lint R8 守护副本与仓库根逐字节一致）。
 
+### 各 Agent 原生入口（克隆仓库即生效）
+
+除 `cp` 复制技能本体外，仓库内置四份薄调度入口（何时加载哪个 skill + 安全纪律指针，
+参考 [awesome-rules](https://github.com/PatrickJS/awesome-cursorrules) 的跨 agent 规则模式）：
+
+| Agent | 入口文件 | 用法 |
+|---|---|---|
+| Codex / Amp / 新版 Cursor | `AGENTS.md` | 跨 agent 事实标准，克隆后原生读取 |
+| Gemini CLI | `GEMINI.md` | 同构入口 |
+| Cursor | `.cursor/rules/wop-skills.mdc` | 克隆后原生生效；亦可 Settings → Rules → Remote Rule (GitHub) 粘贴 `wop-platform/wop-skills` 直接导入 |
+| Continue.dev | `.continue/rules/wop-skills.md` | amplified.dev 格式（Markdown + frontmatter），兼容 rules CLI 渲染生态 |
+
 ### 安装后验证
 
 ```bash
