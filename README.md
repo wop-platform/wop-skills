@@ -11,7 +11,7 @@
 [![Aligned](https://img.shields.io/badge/triple--aligned-crypto--spec%20v0.3%20%C2%B7%20sdk--spec%20v1.0%20%C2%B7%20sdk%200.1.1-success)]()
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/wop-platform/wop-skills?utm_source=oss&utm_medium=github&utm_campaign=wop-platform%2Fwop-skills&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-[特性](#-为什么存在--why-this-repo-exists) · [快速开始](#-快速开始--quick-start) · [命令](#-八件套命令--the-eight-commands) · [协议](#-协议心智模型--protocol-mental-model) · [安全](#-安全纪律--security-discipline) · [治理](#-质量与治理--quality--governance)
+[特性](#-为什么存在--why-this-repo-exists) · [安装](#-安装到你的-agent--install-into-your-agent) · [快速开始](#-快速开始--quick-start) · [命令](#-八件套命令--the-eight-commands) · [协议](#-协议心智模型--protocol-mental-model) · [安全](#-安全纪律--security-discipline) · [治理](#-质量与治理--quality--governance)
 
 </div>
 
@@ -66,6 +66,50 @@ spec and six official SDKs:
 
 The three skills stack: `wop-cli` is the tooling foundation; `wop-dev` and
 `wop-troubleshoot` are knowledge layers on top.
+
+---
+
+## 📥 安装到你的 Agent | Install into Your Agent
+
+三件套遵循跨 agent 的 [Agent Skills](https://code.claude.com/docs/en/skills) 标准（`SKILL.md` + 脚本 + 参考文档），
+以下任一路径安装后，agent 按需自动加载。
+
+### Claude Code（插件市场 · 推荐）
+
+```text
+/plugin marketplace add wop-platform/wop-skills
+/plugin install wop-skills@wop-skills
+```
+
+整仓安装：`SKILL.md → SECURITY.md` 相对链接与 `scripts/` 资产全部保全。
+插件技能以命名空间调用：`/wop-skills:wop-cli`、`/wop-skills:wop-dev`、`/wop-skills:wop-troubleshoot`。
+
+### 手动安装（Cursor / OpenCode / Codex / Amp / Gemini CLI）
+
+```bash
+git clone https://github.com/wop-platform/wop-skills.git
+
+# Claude Code / Cursor / OpenCode —— 均识别 .claude/skills/
+mkdir -p ~/.claude/skills && cp -r wop-skills/skills/* ~/.claude/skills/
+
+# Codex / Amp / Gemini CLI —— vendor-neutral 路径
+mkdir -p ~/.agents/skills && cp -r wop-skills/skills/* ~/.agents/skills/
+```
+
+> 手动复制方式下，`SKILL.md` 内指向仓库根 [SECURITY.md](SECURITY.md) 的相对链接不随行——
+> 安全纪律 S1–S8 全文请回仓库查阅；各 `SKILL.md` 正文已内联关键条款（S3/S7）。
+
+### 安装后验证
+
+```bash
+pip install wop-python-sdk
+python wop-skills/skills/wop-cli/scripts/wop selftest   # 三元组 + 黄金向量全绿才可用
+```
+
+The pack follows the cross-agent Agent Skills standard (`SKILL.md` + scripts + references).
+Install via the marketplace (Claude Code) or copy into your agent's skills directory
+(`~/.claude/skills/` or the vendor-neutral `~/.agents/skills/`). Verify with
+`wop selftest` — everything else refuses to run unless the alignment triple is green.
 
 ---
 
