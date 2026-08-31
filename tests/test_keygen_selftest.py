@@ -104,11 +104,10 @@ class TestSelftest:
     def test_version_floor_enforced(self, tmp_path, monkeypatch):  # spec:#9 版本面
         # 版本被降级语义：直接构造低版本断言常量逻辑（不依赖伪造安装）
         mod = _load_cli_module()
-        if True:
-            assert mod.MIN_SDK_VERSION == (0, 1, 1)
-            assert mod.VECTORS_MD5 == "1033af2c35b498b479e41487ccbda862"
-            assert mod.FORMAT_RULES_COUNT == 12
-            assert len(mod.ALL_FORMAT_RULE_IDS) == 12
+        assert mod.MIN_SDK_VERSION == (0, 1, 1)
+        assert mod.VECTORS_MD5 == "1033af2c35b498b479e41487ccbda862"
+        assert mod.FORMAT_RULES_COUNT == 12
+        assert len(mod.ALL_FORMAT_RULE_IDS) == 12
 
 
 class TestArgvGuard:  # spec:SECURITY-S6

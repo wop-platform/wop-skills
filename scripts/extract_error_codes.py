@@ -97,7 +97,7 @@ def main(argv: list) -> int:
     lines = [
         "# 网关错误码目录（生成物——禁手改）",
         "",
-        f"> 提取源：`gtsp-wop-gateway/.../GatewayExceptionEnum.java`（唯一真源，design.md §10.3）",
+        "> 提取源：`gtsp-wop-gateway/.../GatewayExceptionEnum.java`（唯一真源，design.md §10.3）",
         f"> 数量基线：{BASELINE_COUNT} 项 · 重新生成：`python3 scripts/extract_error_codes.py`",
         "> I7 模糊码（1022/2005）：对外不区分根因——diagnose 只给排查方向，禁猜原因",
         "",
