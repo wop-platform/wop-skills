@@ -102,7 +102,7 @@ mkdir -p ~/.agents/skills && cp -r wop-skills/skills/* ~/.agents/skills/
 ### 各 Agent 原生入口（克隆仓库即生效）
 
 除 `cp` 复制技能本体外，仓库内置四份薄调度入口（何时加载哪个 skill + 安全纪律指针，
-参考 [awesome-rules](https://github.com/PatrickJS/awesome-cursorrules) 的跨 agent 规则模式）：
+参考 [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) 的跨 agent 规则模式）：
 
 | Agent | 入口文件 | 用法 |
 |---|---|---|
