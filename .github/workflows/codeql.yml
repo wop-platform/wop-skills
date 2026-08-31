@@ -1,0 +1,56 @@
+name: codeql
+
+# CodeQL 静态分析：main ruleset（21890220）启用 code_scanning 规则，要求 PR 提供
+# 扫描结果，而仓库此前未配置任何扫描工具 → 合并框永久 "Waiting for Code Scanning
+# results. Code Scanning may not be configured for the target branch."，PR 无法合并。
+# - PR → 产生 Code scanning check，门禁实时满足
+# - push main → 基线扫描入库；schedule → 每周一全量复扫（覆盖新增检测规则）
+# - 语言仅 python：本仓可执行代码为 Python（.factory/scripts/tests）；md/sh/json
+#   不在 CodeQL 支持面。公开仓库 Actions 免费无额度顾虑。
+# - fork PR：GITHUB_TOKEN 被降权无 security-events: write，自动分析结果只上到
+#   fork 仓库，本仓 code_scanning 门禁不会满足 → 维护者复核路径：Actions →
+#   codeql → Run workflow，输入 PR 编号（dispatch 需 write 权限，天然限维护者；
+#   扫描该 PR 的 merge ref，SARIF 关联上传到本仓）。不用 pull_request_target：
+#   不受信任代码 + 提权 token 的组合存在注入风险，Sourcery 评审同此结论。
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '30 1 * * 1'
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: '要扫描的 PR 编号（fork PR 维护者复核）'
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  security-events: write # SARIF 上传
+
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # dispatch：checkout 目标 PR 的 merge ref；其余事件 github.ref 与默认行为等值
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr) || github.ref }}
+      - name: Resolve PR merge commit（dispatch 复核路径专用）
+        if: github.event_name == 'workflow_dispatch'
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: echo "sha=$(gh api repos/${{ github.repository }}/pulls/${{ inputs.pr }}/merge --jq .sha)" >> "$GITHUB_OUTPUT"
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: '/language:python'
+          # dispatch：结果关联到目标 PR 的 merge ref；其余事件交给 action 默认值
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('refs/pull/{0}/merge', inputs.pr) || github.ref }}
+          sha: ${{ github.event_name == 'workflow_dispatch' && steps.merge.outputs.sha || github.sha }}
