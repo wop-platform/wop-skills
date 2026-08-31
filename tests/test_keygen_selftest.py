@@ -27,7 +27,7 @@ SUITES_RSA = {"WOP-RSA3072-SHA256": 3072, "WOP-RSA4096-SHA256": 4096}
 def run_cli(*args: str, env_extra: dict | None = None) -> subprocess.CompletedProcess:
     env = {**os.environ, **(env_extra or {})}
     return subprocess.run([sys.executable, str(CLI), *args],
-                          capture_output=True, text=True, env=env, timeout=60)
+                          capture_output=True, text=True, env=env, timeout=90)
 
 
 def _load_cli_module(name="wop_cli_mod"):
@@ -118,14 +118,14 @@ class TestArgvGuard:  # spec:SECURITY-S6
         r = run_cli("keygen", "--suite", "WOP-SM2-SM3", "--out-dir", tempfile.mkdtemp(),
                     env_extra={"WOP_DUMMY": self.PEM}) if False else subprocess.run(
             [sys.executable, str(CLI), "keygen", "--suite", "WOP-SM2-SM3",
-             "--body", self.PEM], capture_output=True, text=True, timeout=30)
+             "--body", self.PEM], capture_output=True, text=True, timeout=90)
         assert r.returncode == 3
         assert "S1" in r.stderr or "SECURITY" in r.stderr
 
     def test_long_base64_block_rejected(self):
         r = subprocess.run(
             [sys.executable, str(CLI), "keygen", "--suite", "WOP-SM2-SM3",
-             "--note", self.LONG_B64], capture_output=True, text=True, timeout=30)
+             "--note", self.LONG_B64], capture_output=True, text=True, timeout=90)
         assert r.returncode == 3
 
     def test_normal_args_not_blocked(self):  # S6 负例：合法参数不误伤

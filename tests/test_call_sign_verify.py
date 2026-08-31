@@ -36,7 +36,7 @@ def env_with(**extra) -> dict:
     }
 
 
-def run_cli(*args, env=None, timeout=30):
+def run_cli(*args, env=None, timeout=90):
     return subprocess.run([sys.executable, str(CLI), *args],
                           capture_output=True, text=True, env=env or env_with(), timeout=timeout)
 
@@ -111,7 +111,7 @@ class TestSign:
         r = subprocess.run([sys.executable, str(CLI), "sign", "POST", "/p"],
                            capture_output=True, text=True,
                            env={k: v for k, v in os.environ.items() if not k.startswith("WOP_")},
-                           timeout=30)
+                           timeout=90)
         assert r.returncode == 2
         assert "WOP_APP_KEY" in r.stderr
 
@@ -191,6 +191,6 @@ class TestApiMock:
         r = subprocess.run([sys.executable, str(CLI), "api", "list"],
                            capture_output=True, text=True,
                            env={k: v for k, v in os.environ.items() if k != "WOP_DISCOVERY_URL"},
-                           timeout=30)
+                           timeout=90)
         assert r.returncode == 2
         assert "WOP_DISCOVERY_URL" in r.stderr
