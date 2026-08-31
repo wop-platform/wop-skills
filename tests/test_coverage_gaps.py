@@ -268,7 +268,7 @@ class TestSelftestDefensiveLayers:  # L2/L3 防御分支（模块级：篡改向
     def test_fixture_read_error_layer(self, monkeypatch):
         mod = load_cli("wop_def_read")
         boom = SimpleNamespace(
-            read_bytes=lambda: iter(()).throw(PermissionError("denied"))
+            read_bytes=lambda: _raise(PermissionError("denied"))
         )
         monkeypatch.setattr(mod, "locate_vectors", lambda: boom)
         assert mod.cmd_selftest(SimpleNamespace()) == 2  # 191-192 except 分支
