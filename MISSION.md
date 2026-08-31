@@ -39,7 +39,7 @@ accept 当且仅当 issue 同时满足：
 
 以下路径工厂永不可触碰；变更只能走人类 MR：
 
-- 治理：`MISSION.md`、`SECURITY.md`
+- 治理：`MISSION.md`、`AGENTS.md`、`SECURITY.md`
 - 意图与判据：`docs/intent.md`（愿景/目标/A1–A5 验收判据——改动 = 重新对齐目标）
 - 密码学与私钥边界：`skills/wop-cli/scripts/`（CLI 即私钥安全边界，
   对应网关 infrastructure/crypto/ 目录的同级保护）
