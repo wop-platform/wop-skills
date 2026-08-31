@@ -96,8 +96,8 @@ mkdir -p ~/.claude/skills && cp -r wop-skills/skills/* ~/.claude/skills/
 mkdir -p ~/.agents/skills && cp -r wop-skills/skills/* ~/.agents/skills/
 ```
 
-> 手动复制方式下，`SKILL.md` 内指向仓库根 [SECURITY.md](SECURITY.md) 的相对链接不随行——
-> 安全纪律 S1–S8 全文请回仓库查阅；各 `SKILL.md` 正文已内联关键条款（S3/S7）。
+> `skills/SECURITY.md` 随 `cp -r skills/*` 一并复制，`SKILL.md` 内的 `../SECURITY.md` 链接
+> 在安装目录中保持活链（lint R8 守护副本与仓库根逐字节一致）。
 
 ### 安装后验证
 

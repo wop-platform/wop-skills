@@ -7,7 +7,7 @@ description: WOP 网关官方 CLI 基座——零代码执行（签名/调用/�
 
 > 对齐三元组：crypto-strategy-spec v0.3-reviewed + wop-sdk-spec v1.0-ratified + wop-python-sdk ≥0.1.1（0.1.0 缺尾随位修复链不可用；`wop selftest` 行为断言是最终校验）
 > 状态：八件套全部可用（keygen/selftest/doctor/api/call/sign/verify/diagnose）；实模式调用需平台网关与发现端点（spec §7 开放项）
-> **安全纪律：先读 [SECURITY.md](../../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**
+> **安全纪律：先读 [SECURITY.md](../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**
 
 ## 何时用
 

@@ -8,6 +8,8 @@
   R4 链接有效   spec:lint-links   SKILL.md/commands.md 内 markdown 相对链接目标必须存在
   R5 基座脚本域 spec:lint-scripts skills/wop-cli/scripts/ 目录必须存在
   R6 判据层在位 spec:lint-intent  docs/intent.md 必须含 A1–A5 判据表
+  R7 矩阵漂移   spec:lint-matrix  docs/spec-matrix.md 列出的测试名必须真实存在
+  R8 安装自包含 spec:lint-sec-copy skills/SECURITY.md 副本与根 SECURITY.md 逐字节一致
 
 退出码：0 全绿；1 有违规。fail-closed：IO 异常按违规处理。
 """
@@ -101,6 +103,20 @@ def violations() -> list[str]:
                     f"spec:lint-matrix R7 违规：矩阵测试名不存在于 tests/ → {name}"
                 )
 
+    # R8 安装自包含：SKILL.md 链接指向 ../SECURITY.md，cp 安装路径下仓库根不可达，
+    # 由 skills/SECURITY.md 副本随 cp -r skills/* 随行保活；本规则守护副本不漂移
+    sec_root = REPO / "SECURITY.md"
+    sec_copy = REPO / "skills" / "SECURITY.md"
+    if not sec_copy.is_file():
+        out.append(
+            "spec:lint-sec-copy R8 违规：skills/SECURITY.md 副本不存在"
+            "（cp 安装路径下 SKILL.md 的 ../SECURITY.md 将断链）"
+        )
+    elif sec_copy.read_bytes() != sec_root.read_bytes():
+        out.append(
+            "spec:lint-sec-copy R8 违规：skills/SECURITY.md 与根 SECURITY.md 内容漂移，请同步副本"
+        )
+
     return out
 
 def main() -> int:
@@ -114,7 +130,7 @@ def main() -> int:
         for v in found:
             print(f"  - {v}", file=sys.stderr)
         return 1
-    print("LINT: 通过（R1–R7 全绿）")
+    print("LINT: 通过（R1–R8 全绿）")
     return 0
 
 if __name__ == "__main__":

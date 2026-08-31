@@ -8,7 +8,7 @@ description: WOP 协议开发指导——canonicalRequest/三套件/L2 信封/F6
 > 前置：需安装 **wop-cli** 基座（对拍/自测工具）；协议真源：
 > [crypto-strategy-spec](https://github.com/wop-platform/wop-specs/blob/main/crypto/crypto-strategy-spec.md) v0.3-reviewed
 > + [sdk-spec](https://github.com/wop-platform/wop-specs/blob/main/sdk/wop-sdk-spec.md) v1.0-ratified（含附录 D1–D5）
-> **安全纪律：先读 [SECURITY.md](../../SECURITY.md)——私钥边界优先于一切开发便利**
+> **安全纪律：先读 [SECURITY.md](../SECURITY.md)——私钥边界优先于一切开发便利**
 
 ## 何时用
 

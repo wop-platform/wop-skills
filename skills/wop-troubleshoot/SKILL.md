@@ -6,7 +6,7 @@ description: WOP 对接排错——错误码目录与 I7 模糊错误二叉排�
 # wop-troubleshoot（排错 skill）
 
 > 前置：需安装 **wop-cli** 基座（diagnose/sign/doctor 工具）
-> **安全纪律：先读 [SECURITY.md](../../SECURITY.md)——排错过程不得要求用户粘贴私钥（S3）**
+> **安全纪律：先读 [SECURITY.md](../SECURITY.md)——排错过程不得要求用户粘贴私钥（S3）**
 
 ## 何时用
 
