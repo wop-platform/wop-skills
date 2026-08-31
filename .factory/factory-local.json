@@ -1,6 +1,7 @@
 {
   "description": "工厂本地化配置（M4 本地化外置）：周界/判据措辞/门命令/仓库参数/上游指针是数据不是代码——guard.py / factory_lib.py / 链脚本 / prompts 零本地化、按 DISTRIBUTION.json full 分发；本文件每仓一份（skip 分发，永不跨仓覆盖）。fail-closed：缺失/损坏/缺键 = 使用方直接非零退出。周界须与 MISSION.md「周界（PERIMETER）」一致——guard.self_check 每次运行强制核对（MISSION 是真相源，本文件是机械化载体）；改本文件后必须重跑 .factory/mutations/run.py 重证 kill rate，evidence-stamp.json 指纹绑定会强制这一点。本仓为文档型仓库：doc-only 改动有执行载体（SKILL.md lint / 结构哨兵 / 反向核对矩阵），属工厂范围——与网关语义相反。",
   "perimeter": [
+    "AGENTS.md",
     "MISSION.md",
     "SECURITY.md",
     "docs/intent.md",
@@ -31,5 +32,6 @@
   "pr_review_skills": [],
   "upstream_repo": "im47cn/awesome-rules",
   "upstream_path": "~/sources/awesome-rules",
-  "feedback_branch_prefix": "feedback/wop-skills"
+  "feedback_branch_prefix": "feedback/wop-skills",
+  "port_point": "5aeaf1b"
 }
