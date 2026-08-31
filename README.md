@@ -101,8 +101,22 @@ mkdir -p ~/.agents/skills && cp -r wop-skills/skills/* ~/.agents/skills/
 
 ### 各 Agent 原生入口（克隆仓库即生效）
 
-除 `cp` 复制技能本体外，仓库内置四份薄调度入口（何时加载哪个 skill + 安全纪律指针，
-参考 [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules) 的跨 agent 规则模式）：
+参考 [im47cn/awesome-rules](https://github.com/im47cn/awesome-rules) 的多 agent 分发模式，
+仓库内置两层入口——插件清单（各家插件系统/市场直接安装）与规则入口（行为调度）：
+
+**插件清单**：
+
+| Agent | 清单 | 说明 |
+|---|---|---|
+| Claude Code | `.claude-plugin/` | plugin.json（含 `skills` 指针）+ marketplace.json |
+| Codex | `.codex-plugin/plugin.json` | `skills` 指针指向 `skills/` |
+| Cursor | `.cursor-plugin/` | plugin.json + marketplace.json |
+| Grok | `.grok-plugin/` | plugin.json + marketplace.json |
+| Kimi | `.kimi-plugin/` | plugin.json（含 interface 块）+ marketplace.json（v2） |
+| OpenCode | `.opencode/opencode.json` | `instructions` 注入三件套 SKILL.md |
+| 通用 | `.agents/plugins/marketplace.json` | vendor-neutral 市场格式 |
+
+**规则入口**（文件格式参考 [awesome-cursorrules](https://github.com/PatrickJS/awesome-cursorrules)）：
 
 | Agent | 入口文件 | 用法 |
 |---|---|---|

@@ -1,0 +1,19 @@
+{
+  "name": "wop-skills",
+  "interface": {
+    "displayName": "WOP Skills"
+  },
+  "plugins": [
+    {
+      "name": "wop-skills",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

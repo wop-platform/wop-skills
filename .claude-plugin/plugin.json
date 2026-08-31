@@ -9,6 +9,7 @@
   "homepage": "https://github.com/wop-platform/wop-skills",
   "repository": "https://github.com/wop-platform/wop-skills",
   "license": "MIT",
+  "skills": "./skills/",
   "keywords": [
     "wop",
     "open-platform",

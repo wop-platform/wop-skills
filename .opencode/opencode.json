@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "skills/wop-cli/SKILL.md",
+    "skills/wop-dev/SKILL.md",
+    "skills/wop-troubleshoot/SKILL.md"
+  ]
+}
