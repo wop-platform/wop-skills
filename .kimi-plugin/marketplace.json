@@ -1,0 +1,10 @@
+{
+  "version": "2",
+  "plugins": [
+    {
+      "id": "wop-skills",
+      "displayName": "WOP Skills",
+      "source": "https://github.com/wop-platform/wop-skills.git"
+    }
+  ]
+}

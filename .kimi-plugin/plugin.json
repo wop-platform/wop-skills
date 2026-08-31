@@ -1,0 +1,17 @@
+{
+  "name": "wop-skills",
+  "version": "0.1.0",
+  "description": "WOP 开放平台 Agent 技能包：官方 CLI 零代码全链路（签名→调用→验响应）、协议开发指导、62 错误码排错树",
+  "author": {
+    "name": "wop-platform"
+  },
+  "homepage": "https://github.com/wop-platform/wop-skills",
+  "license": "MIT",
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "WOP Skills",
+    "shortDescription": "WOP 开放平台对接技能三件套（CLI / 协议开发 / 排错）",
+    "category": "Coding",
+    "websiteURL": "https://github.com/wop-platform/wop-skills"
+  }
+}

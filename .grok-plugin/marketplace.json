@@ -1,0 +1,15 @@
+{
+  "name": "wop-skills",
+  "owner": {
+    "name": "wop-platform",
+    "url": "https://github.com/wop-platform"
+  },
+  "description": "WOP 开放平台 Agent 技能包",
+  "plugins": [
+    {
+      "name": "wop-skills",
+      "source": ".",
+      "description": "WOP 开放平台 Agent 技能包（三件套：wop-cli 零代码基座 / wop-dev 协议开发指导 / wop-troubleshoot 62 错误码排错）"
+    }
+  ]
+}

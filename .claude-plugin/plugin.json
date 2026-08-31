@@ -1,0 +1,23 @@
+{
+  "name": "wop-skills",
+  "version": "0.1.0",
+  "description": "WOP 开放平台 Agent 技能包——官方 CLI 零代码全链路（签名→调用→验响应）、协议开发指导、62 错误码排错树。Agent skills for the WOP Open Platform: zero-code official CLI (sign → call → verify), protocol dev guide, and a 62-error-code troubleshooting tree.",
+  "author": {
+    "name": "wop-platform",
+    "url": "https://github.com/wop-platform"
+  },
+  "homepage": "https://github.com/wop-platform/wop-skills",
+  "repository": "https://github.com/wop-platform/wop-skills",
+  "license": "MIT",
+  "skills": "./skills/",
+  "keywords": [
+    "wop",
+    "open-platform",
+    "api-integration",
+    "signing",
+    "sm2",
+    "rsa",
+    "agent-skills",
+    "claude-code"
+  ]
+}

@@ -8,6 +8,8 @@
   R4 链接有效   spec:lint-links   SKILL.md/commands.md 内 markdown 相对链接目标必须存在
   R5 基座脚本域 spec:lint-scripts skills/wop-cli/scripts/ 目录必须存在
   R6 判据层在位 spec:lint-intent  docs/intent.md 必须含 A1–A5 判据表
+  R7 矩阵漂移   spec:lint-matrix  docs/spec-matrix.md 列出的测试名必须真实存在
+  R8 安装自包含 spec:lint-sec-copy skills/SECURITY.md 副本与根 SECURITY.md 逐字节一致
 
 退出码：0 全绿；1 有违规。fail-closed：IO 异常按违规处理。
 """
@@ -23,16 +25,17 @@ MAX_LINES = 500
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 
 
-def violations() -> list[str]:
-    out: list[str] = []
-
-    # R1 基座
+def _check_base(out: list[str]) -> bool:
+    """R1 基座存在；False 表示基座缺失，后续规则无从谈起。"""
     base_skill = REPO / "skills" / "wop-cli" / "SKILL.md"
     if not base_skill.is_file():
         out.append("spec:lint-base R1 违规：基座 skills/wop-cli/SKILL.md 不存在")
-        return out
+        return False
+    return True
 
-    # R2/R3/R4 逐 SKILL.md
+
+def _check_skill_docs(out: list[str]) -> None:
+    """R2/R3/R4 逐 SKILL.md：行数上限 + 安全引用 + 相对链接。"""
     for skill in sorted(REPO.glob("skills/*/SKILL.md")):
         text = skill.read_text(encoding="utf-8")
         lines = text.splitlines()
@@ -57,7 +60,9 @@ def violations() -> list[str]:
                     f"spec:lint-links R4 违规：{skill.relative_to(REPO)} 链接目标不存在 → {target}"
                 )
 
-    # R4 扩展：references 下 md 的相对链接
+
+def _check_references(out: list[str]) -> None:
+    """R4 扩展：references 下 md 的相对链接。"""
     for ref in sorted(REPO.glob("skills/*/references/*.md")):
         text = ref.read_text(encoding="utf-8")
         for target in LINK_RE.findall(text):
@@ -69,39 +74,72 @@ def violations() -> list[str]:
                     f"spec:lint-links R4 违规：{ref.relative_to(REPO)} 链接目标不存在 → {target}"
                 )
 
-    # R5 基座脚本域
+
+def _check_scripts_dir(out: list[str]) -> None:
+    """R5 基座脚本域。"""
     scripts_dir = REPO / "skills" / "wop-cli" / "scripts"
     if not scripts_dir.is_dir():
         out.append("spec:lint-scripts R5 违规：skills/wop-cli/scripts/ 目录不存在")
 
-    # R6 判据层
+
+def _check_intent(out: list[str]) -> None:
+    """R6 判据层在位。"""
     intent = REPO / "docs" / "intent.md"
     if not intent.is_file():
         out.append("spec:lint-intent R6 违规：docs/intent.md 不存在")
-    else:
-        itext = intent.read_text(encoding="utf-8")
-        for aid in ("A1", "A2", "A3", "A4", "A5"):
-            if aid not in itext:
-                out.append(f"spec:lint-intent R6 违规：docs/intent.md 缺判据 {aid}")
+        return
+    itext = intent.read_text(encoding="utf-8")
+    for aid in ("A1", "A2", "A3", "A4", "A5"):
+        if aid not in itext:
+            out.append(f"spec:lint-intent R6 违规：docs/intent.md 缺判据 {aid}")
 
-    # R7 矩阵漂移：spec-matrix 列出的测试名必须真实存在（MISSION 铁律 7 载体）
+
+def _check_matrix(out: list[str]) -> None:
+    """R7 矩阵漂移：spec-matrix 列出的测试名必须真实存在（MISSION 铁律 7 载体）。"""
     matrix = REPO / "docs" / "spec-matrix.md"
     if not matrix.is_file():
         out.append("spec:lint-matrix R7 违规：docs/spec-matrix.md 不存在")
-    else:
-        import re as _re
-        mtext = matrix.read_text(encoding="utf-8")
-        test_names = set(_re.findall(r"`(test_[a-z0-9_]+)`", mtext))
-        tests_blob = "\n".join(
-            f.read_text(encoding="utf-8") for f in REPO.glob("tests/*.py")
-        )
-        for name in sorted(test_names):
-            if name not in tests_blob:
-                out.append(
-                    f"spec:lint-matrix R7 违规：矩阵测试名不存在于 tests/ → {name}"
-                )
+        return
+    mtext = matrix.read_text(encoding="utf-8")
+    test_names = set(re.findall(r"`(test_[a-z0-9_]+)`", mtext))
+    tests_blob = "\n".join(
+        f.read_text(encoding="utf-8") for f in REPO.glob("tests/*.py")
+    )
+    out.extend(
+        f"spec:lint-matrix R7 违规：矩阵测试名不存在于 tests/ → {name}"
+        for name in sorted(test_names)
+        if name not in tests_blob
+    )
 
+
+def _check_sec_copy(out: list[str]) -> None:
+    """R8 安装自包含：SKILL.md 链接指向 ../SECURITY.md，cp 安装路径下仓库根不可达，
+    由 skills/SECURITY.md 副本随 cp -r skills/* 随行保活；本规则守护副本不漂移。"""
+    sec_root = REPO / "SECURITY.md"
+    sec_copy = REPO / "skills" / "SECURITY.md"
+    if not sec_copy.is_file():
+        out.append(
+            "spec:lint-sec-copy R8 违规：skills/SECURITY.md 副本不存在"
+            "（cp 安装路径下 SKILL.md 的 ../SECURITY.md 将断链）"
+        )
+    elif sec_copy.read_bytes() != sec_root.read_bytes():
+        out.append(
+            "spec:lint-sec-copy R8 违规：skills/SECURITY.md 与根 SECURITY.md 内容漂移，请同步副本"
+        )
+
+
+def violations() -> list[str]:
+    out: list[str] = []
+    if not _check_base(out):
+        return out
+    _check_skill_docs(out)
+    _check_references(out)
+    _check_scripts_dir(out)
+    _check_intent(out)
+    _check_matrix(out)
+    _check_sec_copy(out)
     return out
+
 
 def main() -> int:
     try:
@@ -114,8 +152,9 @@ def main() -> int:
         for v in found:
             print(f"  - {v}", file=sys.stderr)
         return 1
-    print("LINT: 通过（R1–R7 全绿）")
+    print("LINT: 通过（R1–R8 全绿）")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
