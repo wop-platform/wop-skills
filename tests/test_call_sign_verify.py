@@ -194,3 +194,57 @@ class TestApiMock:
                            timeout=90)
         assert r.returncode == 2
         assert "WOP_DISCOVERY_URL" in r.stderr
+
+
+class TestOutboundHeaderContract:  # sdk-spec §2.1/§2.2 + crypto D14（audit 2026-09-01）
+    """出向必传 header 契约与 SDK 错误映射的外部契约测试。
+
+    基建复用 env_with（app_test / RSA3072 / 双钥）与 run_cli（subprocess 真进程）。
+    """
+
+    @staticmethod
+    def _draft(args, env=None):
+        r = run_cli("sign", *args, env=env)
+        assert r.returncode == 0, r.stderr
+        return json.loads(r.stdout)
+
+    def test_mandatory_headers_present_and_signed(self):  # spec:2.1
+        d = self._draft(("POST", "/gateway/logistics.waybill.sync", "--body", '{"a": 1}'))
+        h = d["headers"]
+        signed = set(h["x-wop-sign"].split("/")[2].split(";"))
+        for name in ("x-wop-appkey", "x-wop-nonce", "x-wop-timestamp", "x-wop-content-digest"):
+            assert name in h, name              # 恒必传头在场
+            assert name in signed, name         # 且全入签
+        assert h["x-wop-appkey"] == "app_test"
+        assert re.fullmatch(r"[0-9a-f]{32}", h["x-wop-nonce"])
+        assert h["x-wop-timestamp"].isdigit()
+        assert "x-wop-sign" not in signed       # 签名载体不自签
+
+    def test_l0_request_has_no_encrypt_header(self):  # spec:2.1 否定式
+        d = self._draft(("POST", "/gateway/echo", "--body", '{"a": 1}'))
+        assert "x-wop-encrypt" not in d["headers"]  # L0 加密头缺席且唯一合法
+
+    def test_get_without_body_omits_digest(self):  # spec:2.1/D2 否定式
+        d = self._draft(("GET", "/gateway/echo"))
+        assert "x-wop-content-digest" not in d["headers"]  # 禁空摘要中间态
+
+    def test_appkey_header_is_config_sourced(self):  # spec:D14 同源可见段
+        d = self._draft(("GET", "/gateway/echo"),
+                        env=env_with(WOP_APP_KEY="app_d14_probe"))
+        assert d["headers"]["x-wop-appkey"] == "app_d14_probe"  # ZA 接线在 SDK 侧
+
+    def test_sdk_key_error_maps_to_config_exit(self):  # spec:2.2 cmd_sign 分支
+        r = run_cli("sign", "POST", "/p", "--body", "{}",
+                    env=env_with(WOP_PRIVATE_KEY="not-a-valid-key"))
+        assert r.returncode == 2
+        assert "Traceback" not in r.stderr    # 否定式：禁裸 traceback
+        assert "请求构造失败（KeyMaterialError）" in r.stderr
+
+    def test_crossfamily_key_rejected_as_config(self):  # spec:2.2 cmd_call 分支
+        sm2 = VECTORS["keys"]["sm2"]["privateDB64"]
+        r = run_cli("call", "POST", "/p", "--body", "{}",
+                    env=env_with(WOP_PRIVATE_KEY=sm2,
+                                 WOP_GATEWAY_URL="http://127.0.0.1:9"))
+        assert r.returncode == 2              # 构造期显式拒，先于网络
+        assert "Traceback" not in r.stderr
+        assert "请求构造失败（KeyMaterialError）" in r.stderr
