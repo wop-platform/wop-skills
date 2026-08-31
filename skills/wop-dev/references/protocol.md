@@ -1,6 +1,6 @@
 # WOP 协议全貌（protocol.md）
 
-> 真源：wop-specs crypto-strategy-spec v0.3-reviewed + sdk-spec v1.0-ratified（附录 D1–D5）。
+> 真源：wop-specs crypto-strategy-spec v0.3-reviewed（D14 已钉）+ sdk-spec v1.0-ratified（附录 D1–D5；§2.1 出向必传 header 契约 / §2.2 错误契约 2026-08-31 增补）。
 > 本文是提炼视图；与真源冲突时以 wop-specs 为准并回修本文。
 
 ## 1. 套件（securityReq 三段式）
@@ -15,10 +15,29 @@
 - SM2 材料喂 RSA 套件（或反向）配置期拒绝；点必须在 sm2p256v1 曲线上
 - 密钥入参接受 PEM 包装或单行 Base64（D12）
 
-## 2. canonicalRequest
+## 2. canonicalRequest 与出向必传 header 契约（sdk-spec §2.1，2026-08-31 增补）
 
-5 段 `\n` 连接；header 值 **Java URLEncoder 语义**（空格→`%20`，不是 `+`）——
-这是跨语言漂移高发点（Go/PHP 默认编码语义不同）。
+canonicalRequest 5 段 `\n` 连接；header 值 **Java URLEncoder 语义**（空格→`%20`，
+不是 `+`）——这是跨语言漂移高发点（Go/PHP 默认编码语义不同）。
+
+出向必传 header 全集（signedHeaders = 下表全部"参与签名"项，缺一即非法）：
+
+| header | 必传条件 | 参与签名 | 值来源 |
+|---|---|---|---|
+| `x-wop-appkey` | 恒必传 | ✅ | `config.appKey` 同值序列化；SM2-SM3 套件 ZA 的 userId 即此值（D14，见下） |
+| `x-wop-content-digest` | 有 body 必传；GET 无 body **缺席**（禁空摘要中间态，D2） | ✅ | wire body 原始字节摘要，格式见 §3 |
+| `x-wop-encrypt` | 仅 L2 必传；**L0 缺席** | ✅ | `L2;dek=...`，见 §6 |
+| `x-wop-nonce` | 恒必传 | ✅ | CSPRNG |
+| `x-wop-timestamp` | 恒必传 | ✅ | 毫秒时间戳（F9 时间窗） |
+| `x-wop-sign` | 恒必传（签名载体） | ❌ 不自签 | 四段式，见 §4 |
+
+- 缺失任一必传项 = 非法输入：**构造期显式拒绝**（configuration 类，见 §8 表），
+  **禁止静默补默认值**
+- **D14（ZA userId 来源链，2026-08-31 已钉）**：SM2-SM3 下 ZA 计算的 userId =
+  出向请求实际携带的 `x-wop-appkey` 值（与 `config.appKey` 同一序列化结果）——
+  签名身份与请求身份恒同源；禁止库默认值（sm-crypto-v2 空串默认被 D14 排除）
+  或固定盐。黄金向量 `inputs.sm2UserId=1234567812345678` 是向量夹具值，
+  **不是默认值证明**。
 
 ## 3. x-wop-content-digest（D2/D3/I1）
 
@@ -62,11 +81,25 @@
 - 回调：URI 取回调 path，方法恒 POST
 - headers 大小写不敏感（SDK 统一 lower 处理）
 
-## 8. I7 错误模糊化（防 oracle）
+## 8. 错误契约 WopError{category, message}（sdk-spec §2.2）与 I7 模糊化
 
-验签失败、解密失败的对外消息**固定不区分根因**（"签名验证失败"/"解密失败"）；
-详细原因（密钥不符/tag 失败/算法错位）只进日志。自研网关/服务端同样必须遵守。
-明确类（可自助排查）：套件格式/跨族、密钥材料、digest 头格式、DEK 族不符。
+SDK 出向可观测错误（构造器 / buildRequest 同步 throw、async reject）统一形状
+`WopError{category, message}`；category 为**闭集**（小写 ASCII，跨语言恒定，
+禁止自造取值），I7 文案纪律按类别固化：
+
+| category | 触发类 | 对外 message |
+|---|---|---|
+| `configuration` | appKey/密钥材料缺失或非法、套件跨族/securityReq 非法 | 明确 |
+| `parse` | header/信封/线上编码格式（D1/D3） | 明确 |
+| `unsupported` | 合法套件但本 SDK 未实现（如 TS/PHP 首版 SM） | 明确 |
+| `integrity` | digest 不匹配 | 明确 |
+| `consistency` | dek alg 与套件族不符（I3） | 明确 |
+| `signature` | 验签失败 | **模糊**：固定「签名验证失败」 |
+| `decrypt` | 解密失败（DEK 解包/GCM tag 两路径同文案） | **模糊**：固定「解密失败」 |
+
+- 模糊类详细原因（密钥不符/tag 失败/算法错位）只进日志；自研网关/服务端同守。
+- 入向校验（verifyResponse/verifyCallback）不抛 WopError，吞并为
+  `VerifyResult{ok, reason}`——该路径 category 不可观测。
 
 ## 9. 传输层（附录 D4）
 

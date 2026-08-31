@@ -213,7 +213,9 @@ build_request 五步（纯函数，零网络）            F6 响应/回调验�
 ─────────────────────────────────            ─────────────────────────────
 套件解析                                     ① 验签
   WOP-<RSA3072|RSA4096|SM2>-<SHA256|SM3>      ② digest 复核
-→ canonicalRequest                           ③ DEK 解包
+→ 恒必传头（全入签）                         ③ DEK 解包
+  appkey/nonce/timestamp · digest 有body · encrypt 仅L2
+→ canonicalRequest
   5 段 \n 连接 · Java URLEncoder 语义          ④ alg 族比对
 → x-wop-content-digest                       ⑤ bulk 解密
   有 body 必产必入签 "<alg> <小写hex>"
