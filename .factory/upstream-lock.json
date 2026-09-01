@@ -1,6 +1,4 @@
 {
-  "anchor": "04ee96d0ed9bf0cfd9cb95d4fdcd25af20254c14",
-  "synced_at": "2026-08-29T00:00:00+00:00",
-  "note": "首次移植锚点 = 网关 gtsp-wop-gateway 同款基线（经其 upstream-sync-check 验证与上游一致）；forge 未随锚点分发，上游 HEAD 的 DISTRIBUTION full 含 forge 属后续增量，追平时按 sync-from-upstream.sh 处理",
-  "sync_debt": "2026-08-29 --check 已知漂移登记：tests/* 上游标 full 但网关基线未带（维持网关验证态，不拉）；fix-issue.sh 网关热修领先锚点（基线取网关版）；prompts/triage.md 本仓判据 b 文档型语义定制。消绿路径：上游清单主权与网关实例收敛（feedback-upstream 反哺）后重验。"
+  "anchor": "63301f279ec196ba5a627a43a1c0366f341c24c1",
+  "synced_at": "2026-09-01T14:53:31+00:00"
 }
