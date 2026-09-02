@@ -349,15 +349,37 @@ def cmd_selftest(args) -> int:
             sign_header = h.get("x-wop-sign", "")
             _check(len(sign_header.split("/")) == 4, "L4",
                    f"{suite} x-wop-sign 非四段式：{sign_header[:40]!r}…")
+            # spec:2.1 恒必传头全集与入签义务（appkey/nonce/timestamp 恒必传、全入签）
+            _check(h.get("x-wop-appkey") == "selftest-only", "L4",  # spec:D14 同源可见段
+                   f"{suite} x-wop-appkey 未与 config.appKey 同值：{h.get('x-wop-appkey')!r}")
+            _check(re.fullmatch(r"[0-9a-f]{32}", h.get("x-wop-nonce", "")) is not None, "L4",
+                   f"{suite} x-wop-nonce 非 CSPRNG 32-hex：{h.get('x-wop-nonce')!r}")
+            _check(h.get("x-wop-timestamp", "").isdigit(), "L4",
+                   f"{suite} x-wop-timestamp 非毫秒数字串")
+            signed = set(sign_header.split("/")[2].split(";"))
+            _check({"x-wop-appkey", "x-wop-nonce", "x-wop-timestamp",
+                    "x-wop-content-digest"} <= signed, "L4",
+                   f"{suite} signedHeaders 缺必传头：{sorted(signed)}")
+            _check("x-wop-sign" not in signed, "L4",
+                   f"{suite} x-wop-sign 不得参与自身签名")
+            _check("x-wop-encrypt" not in h, "L4",  # spec:2.1 否定式：L0 无加密头
+                   f"{suite} L0 请求携带了 x-wop-encrypt")
+            draft_get = client.build_request("GET", "/gateway/selftest.probe")
+            hget = {k.lower(): v_ for k, v_ in draft_get.headers.items()}
+            _check("x-wop-content-digest" not in hget, "L4",  # spec:2.1/D2 否定式：GET 禁空摘要
+                   f"{suite} GET 无 body 不得携带 digest 头")
             draft2 = client.build_request("POST", "/gateway/selftest.probe",
                                           {"card": "6222000000000000"}, level="L2")
             h2 = {k.lower(): v_ for k, v_ in draft2.headers.items()}
             _check(h2.get("x-wop-encrypt", "").startswith("L2;dek="), "L4",
                    f"{suite} L2 加密头异常")
+            signed2 = set(h2["x-wop-sign"].split("/")[2].split(";"))
+            _check("x-wop-encrypt" in signed2, "L4",  # spec:2.1：L2 加密头必入签
+                   f"{suite} L2 x-wop-encrypt 未入签")
             body = json.loads(draft2.wire_body)
             _check(set(body) == {"encrypted"} and isinstance(body["encrypted"], str), "L4",
                    f"{suite} L2 wire body 非信封 JSON：{str(body)[:40]}")
-        return "三套件 L0/L2 构造冒烟（digest/sign/encrypt 头 + 信封体）"
+        return "三套件 L0/L2 构造冒烟（必传头全集+入签义务+digest/sign/encrypt 头 + 信封体）"
 
     layer("L4 集成冒烟", l4)
 
@@ -449,6 +471,7 @@ def _emit_draft(draft) -> None:
 def cmd_sign(args) -> int:  # spec:#5-sign 对拍用：仅产 draft 不发送
     try:
         from wop_sdk import WopClient
+        from wop_sdk.errors import WopSdkError  # spec:2.2 SDK 出向错误族 → 配置面
         client = WopClient(load_client_config(require_gateway=False))
         body = _parse_body(args.body) if args.body else None
         if args.level == "L2" and body is None:
@@ -456,6 +479,8 @@ def cmd_sign(args) -> int:  # spec:#5-sign 对拍用：仅产 draft 不发送
         draft = client.build_request(args.method, args.path, body, level=args.level)
     except ConfigError as exc:
         return _die(EXIT_CONFIG, str(exc))
+    except WopSdkError as exc:  # spec:2.2 构造期显式拒（KeyMaterial/跨族等）——禁裸 traceback
+        return _die(EXIT_CONFIG, f"请求构造失败（{type(exc).__name__}）：{exc}")
     except (ValueError, TypeError) as exc:  # build_request 直抛面（sdk 侦察 §2.4）
         return _die(EXIT_CONFIG, f"请求构造参数错误：{exc}")
     _emit_draft(draft)
@@ -465,6 +490,7 @@ def cmd_sign(args) -> int:  # spec:#5-sign 对拍用：仅产 draft 不发送
 def cmd_call(args) -> int:  # spec:#5-call 全链路：构造→发送→F6 验证
     try:
         from wop_sdk import WopClient
+        from wop_sdk.errors import WopSdkError  # spec:2.2 SDK 出向错误族 → 配置面
         from wop_sdk.transports import UrllibTransport, send_draft
         client = WopClient(load_client_config(require_gateway=True))
         body = _parse_body(args.body) if args.body else None
@@ -474,6 +500,8 @@ def cmd_call(args) -> int:  # spec:#5-call 全链路：构造→发送→F6 验�
         resp = send_draft(UrllibTransport(), client._config.gateway_base_url, draft)
     except ConfigError as exc:
         return _die(EXIT_CONFIG, str(exc))
+    except WopSdkError as exc:  # spec:2.2 构造期显式拒（KeyMaterial/跨族等）——禁裸 traceback
+        return _die(EXIT_CONFIG, f"请求构造失败（{type(exc).__name__}）：{exc}")
     except (ValueError, TypeError) as exc:
         return _die(EXIT_CONFIG, f"请求构造参数错误：{exc}")
     except OSError as exc:

@@ -63,3 +63,15 @@
 | A3 私钥隔离 | S6 三测试 + `test_tampered_body_rejected_with_vague_reason`（I7 reason 模糊否定式） |
 | A4 漂移拒跑 | `test_tampered_fixture_refuses_to_run` |
 | A5 安装即用 | selftest L1-L5（环境自证）；全量安装演练待 README（spec §7 开放项） |
+
+## sdk-spec §2.1 / §2.2 / crypto D14（audit 2026-09-01 增补）
+
+| 条款 | 测试 | 否定式 |
+|------|------|--------|
+| §2.1 恒必传头（appkey/nonce/timestamp/digest）全入签 + sign 不自签 | `test_mandatory_headers_present_and_signed` | `x-wop-sign` 不在 signedHeaders（同测试断言） |
+| §2.1 L0 请求 x-wop-encrypt 缺席 | — | `test_l0_request_has_no_encrypt_header` |
+| §2.1/D2 GET 无 body → digest 头缺席（禁空摘要） | — | `test_get_without_body_omits_digest` |
+| D14 appkey 头与配置同值（同源可见段；ZA 接线属 SDK 侧，audit conflicts 记录） | `test_appkey_header_is_config_sourced` | — |
+| §2.2 SDK 出向错误 → 配置面 exit 2 + 明确文案（cmd_sign 分支） | `test_sdk_key_error_maps_to_config_exit` | `Traceback` 出现即失败（同测试断言） |
+| §2.2 跨族密钥构造期显式拒（cmd_call 分支） | `test_crossfamily_key_rejected_as_config` | 同上 |
+| §2.1 selftest L4 运行时守卫（头全集/入签/L0·GET 否定式/L2 入签） | `test_all_layers_green`（L4 扩展） | L4 内嵌否定式检查 |
