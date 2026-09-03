@@ -69,7 +69,7 @@
       "id": "B-102",
       "description": "行为破坏：SKILL.md 前 40 行抹除 SECURITY.md 安全纪律引用（lint R3 应红）",
       "target": "skills/wop-cli/SKILL.md",
-      "find": "**安全纪律：先读 [SECURITY.md](../../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**",
+      "find": "**安全纪律：先读 [SECURITY.md](../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**",
       "replace": "安全纪律详见仓库根目录的宪法文件。",
       "gate": "tests",
       "expect_block": true
