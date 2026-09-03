@@ -1,0 +1,4 @@
+# CodeRabbit 配置（平台 PR 评审；schema: https://docs.coderabbit.ai）
+# 对齐上游 awesome-rules（2d034e6）：平台评审语言切换为中文
+# 认证仅本地 CLI 场景需要：coderabbit auth login（https://docs.coderabbit.ai/cli）
+language: zh-CN
