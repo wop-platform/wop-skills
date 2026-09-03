@@ -1,3 +1,5 @@
 # factory: 追平提交忽略清单（git blame --ignore-revs 消噪）
 # factory: 上游同步追平（2be9f99d4）
 c5fcbbb18db128eb5e3ddce95227d5d4ec28de5a
+# factory: 上游同步追平（5b6913da9）
+7c5800b9c8e963ab97ddb91b4786b4a57b8fe368
