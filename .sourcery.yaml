@@ -23,6 +23,10 @@ rule_settings:
   disable:
   - no-loop-in-tests
   - no-conditionals-in-tests
+  # 2026-09-03 追平上游裁决（awesome-rules .sourcery.yaml 2026-09-01）：
+  # low-code-quality 是长 main 顺序流程的聚合标签——mutations/run.py 无可操作
+  # 子建议，拆分收益边际。run.py 为上游 skip 面逐字节拷贝，不为过门偏离上游。
+  - low-code-quality
 
   rule_types:
   - refactoring
