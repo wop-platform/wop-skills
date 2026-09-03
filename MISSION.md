@@ -44,7 +44,8 @@ accept 当且仅当 issue 同时满足：
 - 密码学与私钥边界：`skills/wop-cli/scripts/`（CLI 即私钥安全边界，
   对应网关 infrastructure/crypto/ 目录的同级保护）
 - 质检线：`.factory/`、`scripts/`
-- 构建与发布面：CI 配置、`.github/`、`.aliyun/`、`.gitignore`、`commitlint.config.js`
+- 构建与发布面：CI 配置、`.github/`、`.aliyun/`、`.gitignore`、`commitlint.config.js`、`.coderabbit.yaml`（CodeRabbit 平台评审配置）
+- 分发面：`.claude-plugin/`、`.codex-plugin/`、`.cursor-plugin/`、`.grok-plugin/`、`.kimi-plugin/`、`.opencode/`、`.agents/`、`.cursor/`、`.continue/`（跨 agent 插件清单与规则入口，manifest 错误会误导所有商户 agent 对接；对齐上游 awesome-rules 周界模型）
 
 > 周界清单是利益权衡（宁宽勿窄），由人类定期复核收窄。
 
