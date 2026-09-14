@@ -7,7 +7,7 @@
 
 | 用途 | 位置 |
 |---|---|
-| 错误码全表（62 项，单文件集中零散落） | `gtsp-wop-gateway/src/main/java/com/wanlianyida/gtsp/wop/gateway/domain/exception/GatewayExceptionEnum.java:30-119` |
+| 错误码全表（62 项，单文件集中零散落） | `内部网关仓/src/main/java/com/wanlianyida/group/wop/gateway/domain/exception/GatewayExceptionEnum.java:30-119` |
 | 每项格式 | 单行 `NAME("desc", ErrorType.X, "solution"),`；对外码值 = 枚举名（`code()` return name()，:134-136） |
 | HTTP 映射（8 规则） | `infrastructure/common/HttpStatusResolver.java:28-61`：SUCCESS/空→200；特例 403 = 1003/1005/1008/1020；前缀路由 1→401、2→400、3→403、4→504、9→429；5 及未知→500 |
 | 失败信封 | `{code, message, traceId, timestamp[, details[]]}`（ResponseEnvelopeFactory.java:118-126；details 仅参数校验类） |

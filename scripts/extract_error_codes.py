@@ -2,7 +2,7 @@
 """extract_error_codes.py —— 网关错误码目录生成器（全量重跑制）。
 
 规格真源：docs/research/error-codes.md（ErrCodeScout 2026-08-29，spec 风险 #3 已解除）。
-提取源（唯一）：gtsp-wop-gateway GatewayExceptionEnum.java:30-119——单行四元组
+提取源（唯一）：internal-gateway GatewayExceptionEnum.java:30-119——单行四元组
 `NAME("desc", ErrorType.X, "solution"),`；HTTP 映射 8 规则照抄 HttpStatusResolver。
 
 产物：
@@ -19,12 +19,16 @@ from __future__ import annotations
 
 import json
 import re
+import os
 import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
-DEFAULT_GW = REPO.parent / "gtsp-wop-gateway"
-ENUM_REL = "src/main/java/com/wanlianyida/gtsp/wop/gateway/domain/exception/GatewayExceptionEnum.java"
+# 内部网关仓路径与枚举相对路径经环境变量注入（公开仓不落内部命名）：
+#   WOP_GATEWAY_REPO      网关仓本地 checkout 根目录
+#   WOP_GATEWAY_ENUM_REL  GatewayExceptionEnum.java 相对网关仓根的路径
+DEFAULT_GW = Path(os.environ["WOP_GATEWAY_REPO"]) if os.environ.get("WOP_GATEWAY_REPO") else None
+ENUM_REL = os.environ.get("WOP_GATEWAY_ENUM_REL", "")
 
 BASELINE_COUNT = 62  # 2026-08-29 基线；枚举演化时更新并重跑
 
@@ -72,6 +76,9 @@ def extract(enum_path: Path) -> list[dict]:
 
 def main(argv: list) -> int:
     gw = Path(argv[1]) if len(argv) > 1 else DEFAULT_GW
+    if gw is None:
+        print("未指定网关仓：传 argv[1] 路径或设置 WOP_GATEWAY_REPO（另需 WOP_GATEWAY_ENUM_REL）", file=sys.stderr)
+        return 2
     enum_path = gw / ENUM_REL
     if not enum_path.is_file():
         print(f"错误码枚举不存在：{enum_path}", file=sys.stderr)
@@ -85,7 +92,7 @@ def main(argv: list) -> int:
     # JSON（CLI diagnose 消费）
     json_out = REPO / "skills" / "wop-cli" / "scripts" / "error-codes.json"
     json_out.write_text(json.dumps({
-        "source": "gtsp-wop-gateway GatewayExceptionEnum.java",
+        "source": "internal-gateway GatewayExceptionEnum.java",
         "generated_baseline": BASELINE_COUNT,
         "i7_codes": sorted(I7_CODES),
         "codes": rows,
@@ -97,7 +104,7 @@ def main(argv: list) -> int:
     lines = [
         "# 网关错误码目录（生成物——禁手改）",
         "",
-        "> 提取源：`gtsp-wop-gateway/.../GatewayExceptionEnum.java`（唯一真源，design.md §10.3）",
+        "> 提取源：`internal-gateway/.../GatewayExceptionEnum.java`（唯一真源，design.md §10.3）",
         f"> 数量基线：{BASELINE_COUNT} 项 · 重新生成：`python3 scripts/extract_error_codes.py`",
         "> I7 模糊码（1022/2005）：对外不区分根因——diagnose 只给排查方向，禁猜原因",
         "",

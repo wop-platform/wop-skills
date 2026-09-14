@@ -46,7 +46,7 @@ Phase 2/3/4 的 CLI 部分标 [人工]；其余可派工厂。
 
 **Documentation references**
 - 字段/口径：docs/research/api-meta.md（可见性过滤四连 + 授权可见范围）
-- 真实路径样例：`/gateway/logistics.waybill.sync`（gtsp-wop-gateway/docs/tools/rsa-keygen.html:259）
+- 真实路径样例：`/gateway/logistics.waybill.sync`（内部网关仓/docs/tools/rsa-keygen.html:259）
 
 **Verification**
 - mock JSON 通过契约 schema 校验（python jsonschema 双向：list 与 describe 各一）；versionStatus 出现值 ⊆ {gray, full}；grep 断言契约文本无 beSvcId/beApiPath/creatorId/responsiblePersonName

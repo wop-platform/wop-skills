@@ -1,5 +1,5 @@
 {
-  "source": "gtsp-wop-gateway GatewayExceptionEnum.java",
+  "source": "internal-gateway GatewayExceptionEnum.java",
   "generated_baseline": 62,
   "i7_codes": [
     "OP_GW_1022",
