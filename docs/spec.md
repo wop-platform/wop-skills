@@ -11,13 +11,13 @@
 | 事实 | 来源 |
 |------|------|
 | 协议真源：crypto-strategy-spec（v0.3-reviewed）+ sdk-spec（v1.0-ratified + 附录 D1–D5）+ 黄金向量 12 条（formatRules 8→12，尾随位升格，commit `ce92dd4`，MD5 `1033af2c35b498b479e41487ccbda862`） | `wop-specs/`（与网关 docs/ 字节级一致，已验证无漂移） |
-| 6 语言官方 SDK 全部落地（java/go/ts/python/php/dotnet），覆盖率 ≥98%，2026-08-29 完成跨语言尾随位大修 | 各 SDK 仓库 + `gtsp-wop-gateway/docs/wop-sdk-cross-lang-audit-20260829.md` |
+| 6 语言官方 SDK 全部落地（java/go/ts/python/php/dotnet），覆盖率 ≥98%，2026-08-29 完成跨语言尾随位大修 | 各 SDK 仓库 + `内部网关仓/docs/wop-sdk-cross-lang-audit-20260829.md` |
 | 协议核心：三套件（RSA3072/RSA4096/SM2-SM3）、L0/L2、canonicalRequest 结构化签名、base64url 无填充（12 条格式规则）、SM2 裸 r‖s、C1C3C2、F6 固定验证顺序、I7 错误模糊化 | crypto-spec + sdk-spec |
 | TS/PHP SDK 首版仅 RSA 套件，SM2 列路线图 | sdk-spec §1.2（Q7 裁决） |
-| API 元数据体系存在：`wop_api_defin`（apiPath、apiFullPath=业务域编码+路径、参数树、出入参示例）+ `wop_api_ver`（灰度/全量状态机）；真实路径形如 `/gateway/logistics.waybill.sync` | gtsp-wop-service 领域层 |
-| **无公开 API 发现端点**：开发者中心 `gtsp-wop-developer` 为空壳仓库；网关为 POST-only 数据面 | 本地勘察 |
-| 网关已有手动网页工具 `docs/tools/rsa-keygen.html`（密钥生成/签名 demo）——平台"帮商户对接"意识存在但停留在 web 表单时代 | gtsp-wop-gateway/docs |
-| 网关仓库运行 .factory auto-factory 治理（MISSION + 二值 triage + 验证门 + holdout + 周界铁律），已经历 S1 崩溃/needs-fix 归零事故并修复 | `gtsp-wop-gateway/MISSION.md` + 审计报告 |
+| API 元数据体系存在：`wop_api_defin`（apiPath、apiFullPath=业务域编码+路径、参数树、出入参示例）+ `wop_api_ver`（灰度/全量状态机）；真实路径形如 `/gateway/logistics.waybill.sync` | 内部服务 领域层 |
+| **无公开 API 发现端点**：开发者中心 `内部服务` 为空壳仓库；网关为 POST-only 数据面 | 本地勘察 |
+| 网关已有手动网页工具 `docs/tools/rsa-keygen.html`（密钥生成/签名 demo）——平台"帮商户对接"意识存在但停留在 web 表单时代 | 内部网关仓/docs |
+| 网关仓库运行 .factory auto-factory 治理（MISSION + 二值 triage + 验证门 + holdout + 周界铁律），已经历 S1 崩溃/needs-fix 归零事故并修复 | `内部网关仓/MISSION.md` + 审计报告 |
 | 传输层限额 D4：11MB 流式上限，读取过程中生效，禁整体缓冲后检查 | sdk-spec 附录 D |
 | PHP L2 信封事故：裸密文 ↔ `{"encrypted":...}` JSON 信封跨语言漂移，已修复；催生 D5 防镜像偏差纪律 | 跨语言审计报告 §2 |
 
@@ -184,5 +184,5 @@ wop-skills/  (github.com/wop-platform/wop-skills，与 6 SDK 同组织)
 
 - [x] ~~factory 门落地~~（2026-08-29 提前完成，kill rate 8/8）
 - [ ] 进入实施的方式：make-plan 分阶段计划（推荐，跨仓依赖多）vs 直接开干
-- [ ] API 发现端点宿主定夺（开发者中心 vs gtsp-wop-service 开放接口）——平台侧决策，契约不阻塞
+- [ ] API 发现端点宿主定夺（开发者中心 vs 内部服务 开放接口）——平台侧决策，契约不阻塞
 - [ ] README.md（安装指引：三件套说明——载体落地后编写）

@@ -1,7 +1,7 @@
 # 侦察归档：API 元数据与发现契约蓝本（Phase 0，ApiMetaScout 2026-08-29）
 
 > 用途：contracts/api-discovery.openapi.yaml 的响应 schema 设计输入。
-> 完整报告：`agent://ApiMetaScout`。字段/码值均抄自 gtsp-wop-service 源码五方交叉（实体/DTO/PO/DDL/枚举）。
+> 完整报告：`agent://ApiMetaScout`。字段/码值均抄自 内部服务 源码五方交叉（实体/DTO/PO/DDL/枚举）。
 
 ## 数据模型（wop_api_defin / wop_api_ver / wop_api_para / wop_api_ver_ex）
 
@@ -29,4 +29,4 @@
 
 1. `countActiveByApiId` 未过滤 del_flag（RepositoryImpl L69-74）——实现侧过滤须补 del_flag=0
 2. 对外契约勿依赖 api_status 派生链，直接以版本层口径为准
-3. 端点宿主未决（developer 空壳仓 vs gtsp-wop-service 开放接口）——spec 开放项 #3
+3. 端点宿主未决（developer 空壳仓 vs 内部服务 开放接口）——spec 开放项 #3
