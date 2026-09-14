@@ -288,7 +288,7 @@ wop-skills/
 
 - **协议真源**：[wop-platform/wop-specs](https://github.com/wop-platform/wop-specs) — crypto-strategy-spec & wop-sdk-spec
 - **官方 SDK**：[python](https://github.com/wop-platform/wop-python-sdk) · [java](https://github.com/wop-platform/wop-java-sdk) · [go](https://github.com/wop-platform/wop-go-sdk) · [php](https://github.com/wop-platform/wop-php-sdk) · [dotnet](https://github.com/wop-platform/wop-dotnet-sdk) · [typescript](https://github.com/wop-platform/wop-typescript-sdk)
-- **网关侧**：`gtsp-wop-gateway`（平台内部）
+- **平台侧**（企业内部部署）：统一接入网关 · 核心逻辑服务 · 回调服务 · 开发者门户 · 文档中心
 
 ---
 
