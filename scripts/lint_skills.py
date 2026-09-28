@@ -165,7 +165,7 @@ def _check_llms(out: list[str]) -> None:
             out.append(f"spec:lint-llms R9 违规：llms.txt 未链接语料 {rel}")
         if p.name == "SKILL.md":
             m = re.search(r"^description:\s*(.+)$", p.read_text(encoding="utf-8"), re.M)
-            if m and m.group(1).strip() not in index:
+            if m and m[1].strip() not in index:
                 out.append(
                     f"spec:lint-llms R9 违规：{rel} frontmatter description 未逐字收录于 llms.txt"
                 )
