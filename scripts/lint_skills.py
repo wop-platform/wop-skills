@@ -165,11 +165,13 @@ def _check_llms(out: list[str]) -> None:
             out.append(f"spec:lint-llms R9 违规：llms.txt 未链接语料 {rel}")
         if p.name == "SKILL.md":
             m = re.search(r"^description:\s*(.+)$", p.read_text(encoding="utf-8"), re.M)
-            if m and m[1].strip() not in index:
+            if m is None:
+                out.append(f"spec:lint-llms R9 违规：{rel} 缺少单行 description frontmatter")
+            elif m[1].strip() not in index:
                 out.append(
                     f"spec:lint-llms R9 违规：{rel} frontmatter description 未逐字收录于 llms.txt"
                 )
-    if LLMS_FULL.read_text(encoding="utf-8") != _llms_full_canonical():
+    if LLMS_FULL.read_bytes() != _llms_full_canonical().encode("utf-8"):
         out.append(
             "spec:lint-llms R9 违规：llms-full.txt 与再生基准不一致"
             "（python3 scripts/lint_skills.py --write-llms）"
@@ -193,7 +195,11 @@ def violations() -> list[str]:
 def main() -> int:
     if "--write-llms" in sys.argv:
         try:
-            LLMS_FULL.write_text(_llms_full_canonical(), encoding="utf-8")
+            temp = LLMS_FULL.with_name(f".{LLMS_FULL.name}.tmp")
+            with temp.open("w", encoding="utf-8") as handle:
+                handle.write(_llms_full_canonical())
+                handle.flush()
+            temp.replace(LLMS_FULL)
         except OSError as exc:
             print(f"LINT: llms-full.txt 写入失败: {exc}", file=sys.stderr)
             return 1
