@@ -10,6 +10,7 @@
   R6 判据层在位 spec:lint-intent  docs/intent.md 必须含 A1–A5 判据表
   R7 矩阵漂移   spec:lint-matrix  docs/spec-matrix.md 列出的测试名必须真实存在
   R8 安装自包含 spec:lint-sec-copy skills/SECURITY.md 副本与根 SECURITY.md 逐字节一致
+  R9 llms 端点   spec:lint-llms   llms.txt 链接覆盖 skills/ 全语料且 SKILL 描述逐字一致；llms-full.txt 逐字节等于再生基准
 
 退出码：0 全绿；1 有违规。fail-closed：IO 异常按违规处理。
 """
@@ -23,6 +24,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 MAX_LINES = 500
 LINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+LLMS_INDEX = REPO / "llms.txt"
+LLMS_FULL = REPO / "llms-full.txt"
 
 
 def _check_base(out: list[str]) -> bool:
@@ -127,6 +130,53 @@ def _check_sec_copy(out: list[str]) -> None:
             "spec:lint-sec-copy R8 违规：skills/SECURITY.md 与根 SECURITY.md 内容漂移，请同步副本"
         )
 
+def _llms_corpus() -> list[Path]:
+    """skills/ 全部 Markdown，路径排序（llms 端点语料域）。"""
+    return sorted(p for p in (REPO / "skills").rglob("*.md") if p.is_file())
+
+
+def _llms_full_canonical() -> str:
+    """R9 基准：全量语料确定性拼接（逐文件保证尾换行）。"""
+    parts = [
+        "# wop-skills 全量语料\n\n"
+        "> skills/ 下全部 Markdown 确定性拼接（路径排序）。再生："
+        "python3 scripts/lint_skills.py --write-llms（lint R9 守护一致性）。\n"
+    ]
+    for p in _llms_corpus():
+        text = p.read_text(encoding="utf-8")
+        if not text.endswith("\n"):
+            text += "\n"
+        parts.append(f"\n# ===== {p.relative_to(REPO).as_posix()} =====\n\n{text}")
+    return "".join(parts)
+
+
+def _check_llms(out: list[str]) -> None:
+    """R9 llms 端点：llms.txt 链接覆盖全语料 + SKILL 描述逐字一致 + llms-full.txt 逐字节再生。"""
+    corpus = _llms_corpus()
+    if not corpus:
+        out.append("spec:lint-llms R9 违规：skills/ 下无 Markdown 语料")
+        return
+    index = LLMS_INDEX.read_text(encoding="utf-8")
+    if "](llms-full.txt)" not in index:
+        out.append("spec:lint-llms R9 违规：llms.txt 未链接 llms-full.txt")
+    for p in corpus:
+        rel = p.relative_to(REPO).as_posix()
+        if f"]({rel})" not in index:
+            out.append(f"spec:lint-llms R9 违规：llms.txt 未链接语料 {rel}")
+        if p.name == "SKILL.md":
+            m = re.search(r"^description:\s*(.+)$", p.read_text(encoding="utf-8"), re.M)
+            if m is None:
+                out.append(f"spec:lint-llms R9 违规：{rel} 缺少单行 description frontmatter")
+            elif m[1].strip() not in index:
+                out.append(
+                    f"spec:lint-llms R9 违规：{rel} frontmatter description 未逐字收录于 llms.txt"
+                )
+    if LLMS_FULL.read_bytes() != _llms_full_canonical().encode("utf-8"):
+        out.append(
+            "spec:lint-llms R9 违规：llms-full.txt 与再生基准不一致"
+            "（python3 scripts/lint_skills.py --write-llms）"
+        )
+
 
 def violations() -> list[str]:
     out: list[str] = []
@@ -138,10 +188,23 @@ def violations() -> list[str]:
     _check_intent(out)
     _check_matrix(out)
     _check_sec_copy(out)
+    _check_llms(out)
     return out
 
 
 def main() -> int:
+    if "--write-llms" in sys.argv:
+        try:
+            temp = LLMS_FULL.with_name(f".{LLMS_FULL.name}.tmp")
+            with temp.open("w", encoding="utf-8") as handle:
+                handle.write(_llms_full_canonical())
+                handle.flush()
+            temp.replace(LLMS_FULL)
+        except OSError as exc:
+            print(f"LINT: llms-full.txt 写入失败: {exc}", file=sys.stderr)
+            return 1
+        print("LINT: llms-full.txt 已按 R9 基准再生")
+        return 0
     try:
         found = violations()
     except OSError as exc:
@@ -152,7 +215,7 @@ def main() -> int:
         for v in found:
             print(f"  - {v}", file=sys.stderr)
         return 1
-    print("LINT: 通过（R1–R8 全绿）")
+    print("LINT: 通过（R1–R9 全绿）")
     return 0
 
 

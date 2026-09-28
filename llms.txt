@@ -1,0 +1,27 @@
+# wop-skills
+
+> WOP 开放平台 Agent 技能包——wop-cli（零代码基座）/ wop-dev（协议心智模型）/ wop-troubleshoot（错误码决策树）。让 AI Agent 安全、正确地完成 API 对接：签名、调用、验签、排错，全程受 SECURITY.md S1–S8 安全纪律约束。全量语料：[llms-full.txt](llms-full.txt)（单请求拉全）。
+
+## Skills
+
+- [wop-cli（基座 skill）](skills/wop-cli/SKILL.md): WOP 网关官方 CLI 基座——零代码执行（签名/调用/验响应全链路）与联调排错（draft 对拍/离线验签）。商户 agent 对接 wop-gateway API 的必备工具层。使用前必读 SECURITY.md 安全纪律。
+- [wop-dev](skills/wop-dev/SKILL.md): WOP 协议开发指导——canonicalRequest/必传 header 契约/三套件/L2 信封/F6/I7 心智模型与六语言 SDK 速查。商户工程师用 agent 写对接代码时使用。前置：需安装 wop-cli 基座 skill。
+- [wop-troubleshoot](skills/wop-troubleshoot/SKILL.md): WOP 对接排错——错误码目录与 I7 模糊错误二叉排查树。联调失败/线上报错时使用，配合 wop diagnose 与 sign 对拍。前置：需安装 wop-cli 基座 skill。
+
+## References
+
+- [wop-cli 命令参考](skills/wop-cli/references/commands.md): 八件套命令逐条用法
+- [wop-cli 脚本资产](skills/wop-cli/scripts/README.md): `wop` 脚本、黄金向量与错误码表
+- [协议契约](skills/wop-dev/references/protocol.md): canonicalRequest、必传 header、三套件与 L2 信封
+- [SDK 速查 · Java](skills/wop-dev/references/sdks/java.md)
+- [SDK 速查 · Python](skills/wop-dev/references/sdks/python.md)
+- [SDK 速查 · Go](skills/wop-dev/references/sdks/go.md)
+- [SDK 速查 · TypeScript](skills/wop-dev/references/sdks/typescript.md)
+- [SDK 速查 · PHP](skills/wop-dev/references/sdks/php.md)
+- [SDK 速查 · .NET](skills/wop-dev/references/sdks/dotnet.md)
+- [排查决策树](skills/wop-troubleshoot/references/decision-tree.md): I7 模糊错误二叉排查
+- [错误码目录](skills/wop-troubleshoot/references/error-codes.md): 全量错误码与处置
+
+## Security
+
+- [安全纪律 S1–S8](skills/SECURITY.md): 私钥边界与写操作确认——使用任何 skill 的前提
