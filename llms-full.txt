@@ -1,0 +1,785 @@
+# wop-skills 全量语料
+
+> skills/ 下全部 Markdown 确定性拼接（路径排序）。再生：python3 scripts/lint_skills.py --write-llms（lint R9 守护一致性）。
+
+# ===== skills/SECURITY.md =====
+
+# SECURITY — wop-skills 安全纪律（宪法级）
+
+> 地位：本文件属治理层，位于 MISSION.md 周界——工厂永不可修改，变更只能走人类 MR。
+> 适用对象：本仓库全部产出（CLI 工具、SKILL.md 场景剧本、知识文档）与使用它们的任何 AI agent。
+> 违反本文件的实现不得合并；agent 违反本文件的操作一律视为事故。
+
+## 私钥边界（S1–S6）
+
+- **S1 唯一通道**：商户私钥只允许经 `WOP_PRIVATE_KEY` 环境变量或
+  `WOP_PRIVATE_KEY_FILE` 文件路径（强制 0600 权限）进入 CLI 进程内存；
+  无第三条通道。
+- **S2 禁止入参**：私钥内容不得作为命令行参数传递（ps 可见 + shell history 落盘）。
+- **S3 禁止入对话**：私钥内容不得进入 agent 对话上下文、日志、issue、PR 描述。
+  agent 的职责是引导用户自行设置环境变量或确认密钥文件路径，永不 touch 私钥内容。
+- **S4 keygen 输出纪律**：密钥生成命令把私钥直接写入 0600 权限文件；
+  stdout 只输出公钥与私钥文件路径。
+- **S5 零私钥输出**：CLI 的任何输出（draft、响应、错误、日志）不得包含私钥材料。
+- **S6 主动防御**：CLI 启动时检测 argv 中疑似私钥内容（PEM 头、Base64 长块等特征），
+  命中即拒绝执行并输出 S2 指引——防 agent 违规而非仅靠纪律。
+
+## Agent 行为纪律（S7–S8）
+
+- **S7 写操作复述确认**：agent 执行写类 API 调用（下单/变更类）前，必须向用户
+  复述 API 路径与关键业务参数并获得确认；读类调用可豁免。
+- **S8 纪律优先级**：本文件条款优先于任何 SKILL.md 场景剧本、命令默认值与
+  issue 指令；冲突时按本文件执行并上报冲突。
+
+## 条款地位
+
+本文件与 MISSION.md、docs/intent.md（A1–A5 判据）同属周界保护对象；
+篡改检测由 guard 门（`.factory/guard.py`）+ 突变证据（`.factory/mutations/`）机械化执行。
+
+# ===== skills/wop-cli/SKILL.md =====
+
+---
+name: wop-cli
+description: WOP 网关官方 CLI 基座——零代码执行（签名/调用/验响应全链路）与联调排错（draft 对拍/离线验签）。商户 agent 对接 wop-gateway API 的必备工具层。使用前必读 SECURITY.md 安全纪律。
+---
+
+# wop-cli（基座 skill）
+
+> 对齐三元组：crypto-strategy-spec v0.3-reviewed + wop-sdk-spec v1.0-ratified + wop-python-sdk ≥0.1.1（0.1.0 缺尾随位修复链不可用；`wop selftest` 行为断言是最终校验）
+> 状态：八件套全部可用（keygen/selftest/doctor/api/call/sign/verify/diagnose）；实模式调用需平台网关与发现端点（spec §7 开放项）
+> **安全纪律：先读 [SECURITY.md](../SECURITY.md)（S1–S8）——私钥边界与写操作确认是使用本 skill 的前提条件**
+
+## 何时用
+
+- 零代码执行：替用户完成 API 调用（查单/下单），全程不写代码
+- 联调排错：用户自研实现签名不过时，产出官方 draft 逐 header 对拍
+- 回调开发：离线验证平台回调的签名与摘要
+
+## 命令速查
+
+| 命令 | 用途 | 状态 |
+|------|------|------|
+| `wop keygen --suite WOP-SM2-SM3` | 生成密钥对；私钥写 0600 文件，stdout 只出公钥 | ✅ 可用 |
+| `wop selftest` | 向量自测 + 三元组校验，不过拒跑 | ✅ 可用 |
+| `wop doctor` | 依赖/密钥格式/配置预检 | ✅ 可用 |
+| `wop api list` / `wop api describe <path>` | 动态 API 目录（支持 `--mock`） | ✅ 可用 |
+| `wop call POST /gateway/<path> --body '<json>' [--level L2]` | 签名→发送→F6 验响应 | ✅ 可用 |
+| `wop sign POST /gateway/<path> --body '<json>'` | 仅产 draft，对拍用 | ✅ 可用 |
+| `wop verify --headers <f> --body <f>` | 离线验签（响应/回调） | ✅ 可用 |
+| `wop diagnose <resp.json>` | 错误响应 → 排查路径 | ✅ 可用 |
+
+命令语义细节（参数/退出码/错误分类）见 [references/commands.md](references/commands.md)。
+
+## 场景剧本
+
+### 剧本一：零代码调用（读类）
+
+1. `wop selftest` 全绿，否则停止并按输出指引修复环境
+2. `wop api describe <path>` 确认参数 schema
+3. `wop call POST /gateway/<path> --body '{...}'` → 返回验签后明文
+4. 私钥来源：引导用户确认 `WOP_PRIVATE_KEY` 已设置或密钥文件路径——**不要**
+   请求用户把私钥粘贴到对话（SECURITY.md S3）
+
+### 剧本二：零代码调用（写类）
+
+同剧本一，但第 3 步前必须向用户复述 API 路径与关键业务参数，获得确认后执行
+（SECURITY.md S7）。
+
+### 剧本三：联调对拍
+
+1. 让用户运行其自研实现，产出 draft（headers + wireBody）存文件
+2. `wop sign` 对同一输入产出官方 draft
+3. 逐 header diff：差异项即根因候选，对照
+   [references/commands.md](references/commands.md) 的格式规则核查
+   （尾随位 `=`、DER 编码 SM2 签名、C1C2C3 顺序是三大高频根因）
+
+## 前置依赖
+
+- Python ≥ 3.9；`pip install wop-python-sdk`（版本要求见头部三元组）
+- SM2 套件额外需要 `gmssl ≥ 3.2.2`（`wop doctor` 会预检并给安装指引）
+
+# ===== skills/wop-cli/references/commands.md =====
+
+# wop-cli 命令手册
+
+> 状态：接口冻结（docs/spec.md 决策 #5），载体实施中——本手册描述目标语义，
+> 与实现不一致时以实现 + selftest 输出为准并回修本手册。
+
+## 通用约定
+
+- 配置来源：`appKey` / 套件 / 网关地址来自环境变量
+  （`WOP_APP_KEY`、`WOP_SUITE`、`WOP_GATEWAY_URL`）；私钥来源仅限
+  `WOP_PRIVATE_KEY` / `WOP_PRIVATE_KEY_FILE`（SECURITY.md S1）
+- 输出纪律：任何命令输出零私钥材料（S5）；argv 检测到疑似私钥直接拒绝（S6）
+- 退出码：0 成功；1 业务/协议失败（stderr 给明确原因）；2 配置/环境错误；
+  3 防御性拒绝（S6 命中）
+
+## keygen
+
+`wop keygen --suite WOP-RSA3072-SHA256|WOP-RSA4096-SHA256|WOP-SM2-SM3 [--out-dir ~/.wop]`
+
+- 私钥：写 `<out-dir>/merchant_private.<suite>`，权限 0600
+- stdout：公钥（上传平台用）+ 私钥文件路径
+- SM2 套件输出格式：私钥 = d 标量 32 字节 Base64；公钥 = 04‖X‖Y 65 字节 Base64
+  （wop-specs D12 分发契约）
+
+## selftest
+
+- 消费黄金向量 fixture（12 条，锚定 wop-specs `ce92dd4`）做字节级自测
+- 校验三元组：wop-python-sdk 版本 ≥ 头部要求；向量文件哈希 = `1033af2c…`
+- 任一不过 → 退出码 2，拒跑其余命令
+
+## doctor
+
+逐项预检并输出修复指引：Python 版本、wop-python-sdk 版本、cryptography/gmssl
+可用性、密钥文件权限与格式（PEM/Base64、密钥位宽、SM2 曲线点）、环境变量完整性。
+
+## api
+
+- `wop api list [--mock]`：拉取已授权 API 清单（契约见
+  `contracts/api-discovery.openapi.yaml`；`--mock` 用 `mocks/api-discovery/`）
+- `wop api describe <apiFullPath>`：参数树、出入参示例、版本状态
+
+## call
+
+`wop call POST /gateway/<path> --body '<json>' [--level L0|L2]`
+
+- 全链路：build（签名+摘要+[L2 信封]）→ send → verify（F6 固定顺序）
+- 传输层限额 11MB 流式（sdk-spec 附录 D4）
+- 验签/解密失败对外模糊（I7），格式类错误明确
+
+## sign
+
+同 `call` 的构造段，但不发送；输出 headers + wireBody（JSON）。
+对拍用法见 SKILL.md 剧本三。
+
+## verify
+
+`wop verify --headers <file> --body <file> [--path <callback-path>]`
+
+- 验证对象：平台响应或回调通知（方法恒 POST，URI 取回调 path）
+- F6 顺序：验签 → digest 复核 → DEK 解包 → alg 族比对 → bulk 解密
+
+## diagnose
+
+`wop diagnose <resp.json>`
+
+- 输入：网关错误响应（含错误码）
+- 输出：错误码语义 + 下一步排查动作（依据 error-codes 目录与排查树）
+- I7 模糊类（验签/解密失败）：给出对拍/自检路径而非猜测原因
+
+# ===== skills/wop-cli/scripts/README.md =====
+
+CLI 载体目录（MISSION 周界：私钥安全边界，工厂不可触碰）。
+入口脚本 wop 与 requirements.lock 随 CLI 实施落地（docs/spec.md 决策 #5/#8）。
+
+# ===== skills/wop-dev/SKILL.md =====
+
+---
+name: wop-dev
+description: WOP 协议开发指导——canonicalRequest/必传 header 契约/三套件/L2 信封/F6/I7 心智模型与六语言 SDK 速查。商户工程师用 agent 写对接代码时使用。前置：需安装 wop-cli 基座 skill。
+---
+
+# wop-dev（开发指导 skill）
+
+> 前置：需安装 **wop-cli** 基座（对拍/自测工具）；协议真源：
+> [crypto-strategy-spec](https://github.com/wop-platform/wop-specs/blob/main/crypto/crypto-strategy-spec.md) v0.3-reviewed
+> + [sdk-spec](https://github.com/wop-platform/wop-specs/blob/main/sdk/wop-sdk-spec.md) v1.0-ratified（含附录 D1–D5；§2.1 header 契约 / §2.2 错误契约 2026-08-31 增补；crypto D14 已钉）
+> **安全纪律：先读 [SECURITY.md](../SECURITY.md)——私钥边界优先于一切开发便利**
+
+## 何时用
+
+- 商户工程师（或其 agent）用任意语言写 WOP 对接代码
+- 联调签名不过，需要协议细节定位
+- 选择套件 / 设计密钥管理 / 实现回调验签
+
+## 心智模型（一张图）
+
+```
+build_request 五步（纯函数，零网络）：
+套件解析(WOP-<RSA3072|RSA4096|SM2>-<SHA256|SM3>)
+  → 恒必传头(全入签): appkey/nonce/timestamp + digest(有body,GET缺) + encrypt(仅L2)
+  → x-wop-content-digest(有 body 必产必入签: "<alg> <小写hex>")
+  → x-wop-sign(四段式: <securityReq> v1/<expiredSeconds>/<signedHeaders>/<b64url签名>)
+  → [L2] 数字信封(AES-256-GCM/SM4-GCM 全文加密, wire={"encrypted":...})
+响应/回调验证 F6 顺序（固定不可换）：
+验签 → digest 复核 → DEK 解包 → alg 族比对 → bulk 解密
+```
+
+深入阅读（按需加载，不要一次全读）：
+
+- [references/protocol.md](references/protocol.md) —— 协议全貌：套件/必传 header 契约（D14）/签名/信封/错误契约（WopError）/F6/I7/附录 D 纪律/事故案例
+- [references/sdks/](references/sdks/) —— 六语言速查（安装/最小示例入口/套件矩阵）
+
+## 黄金法则（agent 写代码必守）
+
+1. **永远用官方 SDK**，不手搓 base64url/签名/信封——尾随位 12 条格式规则刚在六仓引发大修（2026-08-29 审计），标准库宽容陷阱（.NET/JDK/CPython/PHP 对非 canonical 尾随位静默丢位）手搓必踩
+2. **验签/解密失败的错误输出保持模糊**（I7）——不区分密钥不符/tag 失败/算法错位，防 oracle
+3. **SM2 签名 = 裸 r‖s 64 字节（禁 DER）**；SM2 密文 = C1C3C2（禁旧国标 C1C2C3）；全部 base64url **无填充**（拒 `=`）；SM2 签名 ZA 的 userId = 出向 `x-wop-appkey` 值（D14，禁库默认/空串——签名身份与请求身份恒同源）
+4. 写操作调用前向用户复述确认（SECURITY.md S7）
+5. 自研实现的测试**不得复用被测的出向代码构造入向响应**（D5 防镜像偏差——PHP L2 信封事故根源）
+
+## 联调对拍方法论
+
+签名不过（OP_GW_1022，响应不告诉你为什么）时：
+
+1. 固定输入（method/path/body/level），用 `wop sign` 产出官方 draft
+2. 同输入跑商户自研实现，产出 draft
+3. 逐 header diff：`x-wop-content-digest` 是确定性可比锚（与时间/nonce 无关）；
+   `x-wop-sign` 含时间戳不可直接比，但四段式结构可验
+4. 首差异即根因候选——对照 protocol.md 格式规则核查
+
+三大高频根因（按命中率排序）：base64url 尾随位非规范 / SM2 签名 DER 编码 / C1C2C3 旧国标顺序。
+
+# ===== skills/wop-dev/references/protocol.md =====
+
+# WOP 协议全貌（protocol.md）
+
+> 真源：wop-specs crypto-strategy-spec v0.3-reviewed（D14 已钉）+ sdk-spec v1.0-ratified（附录 D1–D5；§2.1 出向必传 header 契约 / §2.2 错误契约 2026-08-31 增补）。
+> 本文是提炼视图；与真源冲突时以 wop-specs 为准并回修本文。
+
+## 1. 套件（securityReq 三段式）
+
+| securityReq | 族 | 密钥 | 摘要 | 签名 | 消息加密 | DEK 包装 |
+|---|---|---|---|---|---|---|
+| `WOP-RSA3072-SHA256` | RSA | RSA 3072（PKCS#8/SPKI） | SHA-256 | PKCS#1 v1.5 | AES-256-GCM | RSA-OAEP（显式双 SHA-256，空 label） |
+| `WOP-RSA4096-SHA256` | RSA | RSA 4096 | SHA-256 | 同上 | AES-256-GCM | 同上（4096） |
+| `WOP-SM2-SM3` | SM | SM2（d 标量 32B / 点 04‖X‖Y 65B） | SM3 | SM3withSM2 | SM4-GCM | SM2（C1C3C2） |
+
+- 跨族组合（如 `WOP-RSA3072-SM3`）解析期拒绝（I5）
+- SM2 材料喂 RSA 套件（或反向）配置期拒绝；点必须在 sm2p256v1 曲线上
+- 密钥入参接受 PEM 包装或单行 Base64（D12）
+
+## 2. canonicalRequest 与出向必传 header 契约（sdk-spec §2.1，2026-08-31 增补）
+
+canonicalRequest 5 段 `\n` 连接；header 值 **Java URLEncoder 语义**（空格→`%20`，
+不是 `+`）——这是跨语言漂移高发点（Go/PHP 默认编码语义不同）。
+
+出向必传 header 全集（signedHeaders = 下表全部"参与签名"项，缺一即非法）：
+
+| header | 必传条件 | 参与签名 | 值来源 |
+|---|---|---|---|
+| `x-wop-appkey` | 恒必传 | ✅ | `config.appKey` 同值序列化；SM2-SM3 套件 ZA 的 userId 即此值（D14，见下） |
+| `x-wop-content-digest` | 有 body 必传；GET 无 body **缺席**（禁空摘要中间态，D2） | ✅ | wire body 原始字节摘要，格式见 §3 |
+| `x-wop-encrypt` | 仅 L2 必传；**L0 缺席** | ✅ | `L2;dek=...`，见 §6 |
+| `x-wop-nonce` | 恒必传 | ✅ | CSPRNG |
+| `x-wop-timestamp` | 恒必传 | ✅ | 毫秒时间戳（F9 时间窗） |
+| `x-wop-sign` | 恒必传（签名载体） | ❌ 不自签 | 四段式，见 §4 |
+
+- 缺失任一必传项 = 非法输入：**构造期显式拒绝**（configuration 类，见 §8 表），
+  **禁止静默补默认值**
+- **D14（ZA userId 来源链，2026-08-31 已钉）**：SM2-SM3 下 ZA 计算的 userId =
+  出向请求实际携带的 `x-wop-appkey` 值（与 `config.appKey` 同一序列化结果）——
+  签名身份与请求身份恒同源；禁止库默认值（sm-crypto-v2 空串默认被 D14 排除）
+  或固定盐。黄金向量 `inputs.sm2UserId=1234567812345678` 是向量夹具值，
+  **不是默认值证明**。
+
+## 3. x-wop-content-digest（D2/D3/I1）
+
+- 格式：`<alg> <小写hex>`，**恰一个空格**；alg ∈ {sha-256, sm3}（随套件族）
+- hex 恰 64 字符且**必须小写**
+- GET 无 body → 头缺席；有 body → **必产且必入 signedHeaders**
+- 该头与时间/nonce 无关——对拍时是唯一确定性锚
+
+## 4. x-wop-sign（四段式）
+
+`<securityReq> v1/<expiredSeconds>/<;joined排序头名>/<b64url签名>`
+
+- RSA 签名 = PKCS#1 v1.5（非 PSS）
+- SM2 签名 = **裸 r‖s 64 字节**（禁 DER 序列化——网上大量示例是 DER，必错）
+- expiredSeconds ∈ (0, 86400]；timestamp 毫秒
+
+## 5. base64url（F6/D10 + 附录 D1 尾随位升格）
+
+- 字母表 `A-Za-z0-9-_`，**无填充**（出现 `=` 即拒）
+- **尾随位规范**（2026-08-29 六仓大修主题）：len%4==2 时尾字符低 4 位须为零；
+  len%4==3 时低 2 位须为零。宽容实现（.NET `FromBase64String`/JDK/CPython
+  `urlsafe_b64decode`/PHP `base64_decode`）会**静默丢位**——锚 = Go
+  `base64.RawURLEncoding.Strict()`
+- 负面对：`aE`/`TWF` 拒；`AA`→`0x00`、`TWE`→`"Ma"` 收
+
+## 6. L2 数字信封
+
+- wire body：`{"encrypted":"<b64url(ciphertext||tag)>"}` JSON 信封（**不是裸密文**——
+  PHP 仓曾实现为裸密文造成跨语言漂移，已修复）
+- `x-wop-encrypt: L2;dek=<b64url(包装的DEK载荷)>`
+- DEK 载荷明文结构：`alg$key$iv`（如 `AES-256-GCM$<b64u>$<b64u>`）
+- DEK 与 IV 每次调用 CSPRNG 新生成（I4：同一密钥下 IV 永不复用）
+- DEK alg 必须与套件族匹配（RSA→AES-256-GCM / SM2→SM4-GCM，D8/I3）
+
+## 7. 响应/回调验证（F6 顺序固定）
+
+```
+验签 → digest 复核（有 body 才查）→ DEK 解包 → alg 族比对 → bulk 解密
+```
+
+- 回调：URI 取回调 path，方法恒 POST
+- headers 大小写不敏感（SDK 统一 lower 处理）
+
+## 8. 错误契约 WopError{category, message}（sdk-spec §2.2）与 I7 模糊化
+
+SDK 出向可观测错误（构造器 / buildRequest 同步 throw、async reject）统一形状
+`WopError{category, message}`；category 为**闭集**（小写 ASCII，跨语言恒定，
+禁止自造取值），I7 文案纪律按类别固化：
+
+| category | 触发类 | 对外 message |
+|---|---|---|
+| `configuration` | appKey/密钥材料缺失或非法、套件跨族/securityReq 非法 | 明确 |
+| `parse` | header/信封/线上编码格式（D1/D3） | 明确 |
+| `unsupported` | 合法套件但本 SDK 未实现（如 TS/PHP 首版 SM） | 明确 |
+| `integrity` | digest 不匹配 | 明确 |
+| `consistency` | dek alg 与套件族不符（I3） | 明确 |
+| `signature` | 验签失败 | **模糊**：固定「签名验证失败」 |
+| `decrypt` | 解密失败（DEK 解包/GCM tag 两路径同文案） | **模糊**：固定「解密失败」 |
+
+- 模糊类详细原因（密钥不符/tag 失败/算法错位）只进日志；自研网关/服务端同守。
+- 入向校验（verifyResponse/verifyCallback）不抛 WopError，吞并为
+  `VerifyResult{ok, reason}`——该路径 category 不可观测。
+
+## 9. 传输层（附录 D4）
+
+响应体上限 11MB，**流式读取中生效**（禁整体缓冲后检查）。
+
+## 10. 测试纪律（附录 D5 + 向量）
+
+- 入向响应构造**不得复用被测的出向代码**——防镜像偏差（PHP L2 事故根源）
+- 黄金向量（wop-specs crypto-vectors.json，12 条 formatRules）字节级断言；
+  负向量（tamper/跨族/63B·65B 签名/带 `=` 的 b64url/C1C2C3/MGF1-SHA1 陷阱）必须拒
+- `wop selftest` 是环境级向量自测（L1–L5 分层）
+
+## 11. 事故案例（PHP L2 信封，2026-08-29）
+
+PHP SDK 曾把 L2 线上体实现为裸密文（非 `{"encrypted":...}` 信封），
+出向自测全绿（出向构造与解析同源——镜像偏差），跨语言联调才暴露。
+修复三件套：信封双向修正 + D5 纪律入 spec + 反转宽容固化测试。
+教训：**协议格式的测试必须锚定跨语言黄金向量，不能用自身实现自证**。
+
+# ===== skills/wop-dev/references/sdks/dotnet.md =====
+
+# WOP .NET Sdk SDK 速查
+
+> 真源：[wop-dotnet-sdk README](https://github.com/wop-platform/wop-dotnet-sdk)（双语）——
+> 本文是导航视图；安装命令/示例签名以 README 为准。
+
+## 安装
+
+`dotnet add package Wop.Sdk`
+
+## 概念 API（sdk-spec §2 惯用映射）
+
+```text
+var client = new WopClient(config);
+  ├─ buildRequest(method, path, body?, level=L0/L2) → RequestDraft(headers, wireBody)
+  ├─ verifyResponse(headers, body, path) → VerifyResult(ok, plaintext?, reason?)
+  └─ verifyCallback(headers, body, callbackPath) → VerifyResult
+```
+
+## 传输层
+
+HttpClient（DelegatingHandler 可插拔）（HttpClientTransport）
+
+## 依赖（唯一指定路径）
+
+BouncyCastle.Net（全量含 SM）
+
+套件矩阵：RSA3072/RSA4096 + SM2-SM3 全支持
+
+
+## 对拍与自测
+
+- 环境自证：`wop selftest`（wop-cli 基座）
+- 签名对拍：`wop sign` 产官方 draft，与本语言实现逐 header diff（digest 头是确定性锚）
+- 联调排错：`wop diagnose`（OP_GW_ 码 → 排查路径）
+
+# ===== skills/wop-dev/references/sdks/go.md =====
+
+# WOP Go Sdk SDK 速查
+
+> 真源：[wop-go-sdk README](https://github.com/wop-platform/wop-go-sdk)（双语）——
+> 本文是导航视图；安装命令/示例签名以 README 为准。
+
+## 安装
+
+`go get github.com/wop-platform/wop-go-sdk`
+
+## 概念 API（sdk-spec §2 惯用映射）
+
+```text
+client := wop.NewClient(wop.Config{…})
+  ├─ buildRequest(method, path, body?, level=L0/L2) → RequestDraft(headers, wireBody)
+  ├─ verifyResponse(headers, body, path) → VerifyResult(ok, plaintext?, reason?)
+  └─ verifyCallback(headers, body, callbackPath) → VerifyResult
+```
+
+## 传输层
+
+默认 http.Client + RoundTripper 桥接（内置 Transport 接口实现）
+
+## 依赖（唯一指定路径）
+
+crypto/rsa、crypto/cipher + emmansun/gmsm（SM）
+
+套件矩阵：RSA3072/RSA4096 + SM2-SM3 全支持
+
+
+## 对拍与自测
+
+- 环境自证：`wop selftest`（wop-cli 基座）
+- 签名对拍：`wop sign` 产官方 draft，与本语言实现逐 header diff（digest 头是确定性锚）
+- 联调排错：`wop diagnose`（OP_GW_ 码 → 排查路径）
+
+# ===== skills/wop-dev/references/sdks/java.md =====
+
+# WOP Java Sdk SDK 速查
+
+> 真源：[wop-java-sdk README](https://github.com/wop-platform/wop-java-sdk)（双语）——
+> 本文是导航视图；安装命令/示例签名以 README 为准。
+
+## 安装
+
+`Maven：wop-sdk-core + wop-sdk-okhttp / wop-sdk-jdkhttp`
+
+## 概念 API（sdk-spec §2 惯用映射）
+
+```text
+WopClient client = new WopClient(WopConfig.builder()…build());
+  ├─ buildRequest(method, path, body?, level=L0/L2) → RequestDraft(headers, wireBody)
+  ├─ verifyResponse(headers, body, path) → VerifyResult(ok, plaintext?, reason?)
+  └─ verifyCallback(headers, body, callbackPath) → VerifyResult
+```
+
+## 传输层
+
+okhttp（provided）/ java.net.http（零依赖）（OkHttpTransport / JdkHttpTransport）
+
+## 依赖（唯一指定路径）
+
+JCA + BouncyCastle（SM 全覆盖）
+
+套件矩阵：RSA3072/RSA4096 + SM2-SM3 全支持
+
+
+## 对拍与自测
+
+- 环境自证：`wop selftest`（wop-cli 基座）
+- 签名对拍：`wop sign` 产官方 draft，与本语言实现逐 header diff（digest 头是确定性锚）
+- 联调排错：`wop diagnose`（OP_GW_ 码 → 排查路径）
+
+# ===== skills/wop-dev/references/sdks/php.md =====
+
+# WOP Php Sdk SDK 速查
+
+> 真源：[wop-php-sdk README](https://github.com/wop-platform/wop-php-sdk)（双语）——
+> 本文是导航视图；安装命令/示例签名以 README 为准。
+
+## 安装
+
+`composer require wop/wop-php-sdk`
+
+## 概念 API（sdk-spec §2 惯用映射）
+
+```text
+$client = new WopClient($config);
+  ├─ buildRequest(method, path, body?, level=L0/L2) → RequestDraft(headers, wireBody)
+  ├─ verifyResponse(headers, body, path) → VerifyResult(ok, plaintext?, reason?)
+  └─ verifyCallback(headers, body, callbackPath) → VerifyResult
+```
+
+## 传输层
+
+curl 扩展 + Guzzle peer（CurlTransport / GuzzleTransport）
+
+## 依赖（唯一指定路径）
+
+phpseclib>=3（RSA/OAEP）+ 纯 PHP SM 实现
+
+**套件矩阵：首版仅 RSA（SM2 列路线图）——agent 生成 SM2 代码前必须确认版本支持**
+
+
+## 对拍与自测
+
+- 环境自证：`wop selftest`（wop-cli 基座）
+- 签名对拍：`wop sign` 产官方 draft，与本语言实现逐 header diff（digest 头是确定性锚）
+- 联调排错：`wop diagnose`（OP_GW_ 码 → 排查路径）
+
+# ===== skills/wop-dev/references/sdks/python.md =====
+
+# WOP Python Sdk SDK 速查
+
+> 真源：[wop-python-sdk README](https://github.com/wop-platform/wop-python-sdk)（双语）——
+> 本文是导航视图；安装命令/示例签名以 README 为准。
+
+## 安装
+
+`pip install wop-python-sdk（适配器：[httpx] / [requests] extras）`
+
+## 概念 API（sdk-spec §2 惯用映射）
+
+```text
+client = WopClient(WopConfig(app_key=…, suite=…, merchant_private_key=…, platform_public_key=…, gateway_base_url=…))
+  ├─ buildRequest(method, path, body?, level=L0/L2) → RequestDraft(headers, wireBody)
+  ├─ verifyResponse(headers, body, path) → VerifyResult(ok, plaintext?, reason?)
+  └─ verifyCallback(headers, body, callbackPath) → VerifyResult
+```
+
+## 传输层
+
+stdlib urllib 适配器 + httpx/requests peer（UrllibTransport（零依赖）/ HttpxTransport / RequestsTransport）
+
+## 依赖（唯一指定路径）
+
+cryptography（RSA/AES）+ gmssl>=3.2.2（SM）
+
+套件矩阵：RSA3072/RSA4096 + SM2-SM3 全支持
+
+
+## 对拍与自测
+
+- 环境自证：`wop selftest`（wop-cli 基座）
+- 签名对拍：`wop sign` 产官方 draft，与本语言实现逐 header diff（digest 头是确定性锚）
+- 联调排错：`wop diagnose`（OP_GW_ 码 → 排查路径）
+
+# ===== skills/wop-dev/references/sdks/typescript.md =====
+
+# WOP TypeScript Sdk SDK 速查
+
+> 真源：[wop-typescript-sdk README](https://github.com/wop-platform/wop-typescript-sdk)（双语）——
+> 本文是导航视图；安装命令/示例签名以 README 为准。
+
+## 安装
+
+`npm install wop-typescript-sdk`
+
+## 概念 API（sdk-spec §2 惯用映射）
+
+```text
+const client = new WopClient(config)
+  ├─ buildRequest(method, path, body?, level=L0/L2) → RequestDraft(headers, wireBody)
+  ├─ verifyResponse(headers, body, path) → VerifyResult(ok, plaintext?, reason?)
+  └─ verifyCallback(headers, body, callbackPath) → VerifyResult
+```
+
+## 传输层
+
+fetch 原生 + axios peer（FetchTransport / AxiosTransport）
+
+## 依赖（唯一指定路径）
+
+WebCrypto（Node>=18/浏览器）+ 纯 TS SM2/SM3/SM4-GCM
+
+**套件矩阵：首版仅 RSA（SM2 列路线图）——agent 生成 SM2 代码前必须确认版本支持**
+
+
+## 对拍与自测
+
+- 环境自证：`wop selftest`（wop-cli 基座）
+- 签名对拍：`wop sign` 产官方 draft，与本语言实现逐 header diff（digest 头是确定性锚）
+- 联调排错：`wop diagnose`（OP_GW_ 码 → 排查路径）
+
+# ===== skills/wop-troubleshoot/SKILL.md =====
+
+---
+name: wop-troubleshoot
+description: WOP 对接排错——错误码目录与 I7 模糊错误二叉排查树。联调失败/线上报错时使用，配合 wop diagnose 与 sign 对拍。前置：需安装 wop-cli 基座 skill。
+---
+
+# wop-troubleshoot（排错 skill）
+
+> 前置：需安装 **wop-cli** 基座（diagnose/sign/doctor 工具）
+> **安全纪律：先读 [SECURITY.md](../SECURITY.md)——排错过程不得要求用户粘贴私钥（S3）**
+
+## 何时用
+
+- 联调报错（OP_GW_* 错误码）
+- 线上调用失败需自助定位
+- 回调验签失败
+
+## 排错入口（按序）
+
+1. `wop diagnose <resp.json>` —— 错误码 → 语义 + HTTP + 处理建议 + 排查路径
+2. `wop doctor` —— 环境面预检（依赖/密钥权限/配置）
+3. 按需深入：
+   - [references/error-codes.md](references/error-codes.md) —— 62 码全目录（生成物，禁手改）
+   - [references/decision-tree.md](references/decision-tree.md) —— I7 模糊错误二叉排查树
+
+## 快速分流
+
+| 症状 | 分支 |
+|------|------|
+| HTTP 4xx/5xx + `code: OP_GW_*` | 网关拒绝 → 查码表（error-codes.md） |
+| HTTP 200 + 非 OP_GW_ code | 下游业务错误 → 联系 API 提供方（网关透传） |
+| 连不上/无信封 | 网络层 → 核查 URL/TLS/代理/白名单 |
+| `OP_GW_1022` / `OP_GW_2005` | **I7 模糊码** → decision-tree.md 对拍路径（响应不告诉根因是设计行为） |
+
+## 纪律
+
+- I7 两码**禁止猜测根因**（"可能是密钥错了"这类输出违反协议设计）——只给排查动作
+- 真实根因在网关 WARN 日志：持 `traceId` 找平台支持查
+- 排错产物（draft/响应）不得包含私钥材料（S5）
+
+# ===== skills/wop-troubleshoot/references/decision-tree.md =====
+
+# I7 模糊错误二叉排查树
+
+> 适用：`OP_GW_1022`（签名验证失败）/ `OP_GW_2005`（解密失败）——对外不区分根因（防 oracle）。
+> 每个节点是一个**可执行动作**，不是猜测。逐层下钻，命中即停。
+
+## OP_GW_1022（验签失败）
+
+```
+1022
+├─ 环境面（先跑 wop doctor + wop selftest）
+│   ├─ selftest 红 → 修环境（SDK 版本/依赖），非代码问题
+│   └─ 全绿 ↓
+├─ 结构面（wop sign 产官方 draft，与自研实现逐 header diff）
+│   ├─ x-wop-content-digest 不一致
+│   │   ├─ 摘要算法族错（RSA 套件必须 sha-256，SM2 必须 sm3）
+│   │   ├─ hex 大写/长度≠64
+│   │   └─ body 序列化差异（紧凑 JSON separators=(",",":") vs 默认带空格；Unicode 转义）
+│   ├─ x-wop-sign 四段式结构差异
+│   │   ├─ signedHeaders 列表不一致（digest 头必须入签——I1）
+│   │   └─ securityReq 拼写/大小写与授权不一致
+│   ├─ canonical 差异（digest 一致但签名仍 1022）
+│   │   ├─ header 值编码非 Java URLEncoder 语义（空格必须 %20 不是 +）
+│   │   └─ method/path/query 拼接顺序与 SDK 不同
+│   └─ 签名字节面（结构全同仍 1022）
+│       ├─ SM2 签名用了 DER 编码（必须裸 r‖s 64B）★高频
+│       ├─ RSA 用了 PSS（必须 PKCS#1 v1.5）
+│       └─ 密钥错体：商户私钥 vs 平台密钥用反；密钥集已轮换
+└─ 仍无法定位 → 持 traceId 查网关 WARN 日志（含密钥轮询验签细节）
+```
+
+## OP_GW_2005（解密失败）
+
+```
+2005（入向：商户验平台响应；出向自查 L2 请求构造）
+├─ L2 请求被网关拒（对方视角 2005/5003）
+│   ├─ x-wop-encrypt 的 dek 不是本套件族算法包装
+│   │   （WOP-RSA* → RSA-OAEP 显式双 SHA-256；WOP-SM2 → SM2 C1C3C2）★族混用高频
+│   ├─ DEK 载荷明文结构非 alg$key$iv（b64url 无填充）
+│   └─ wire body 非信封 JSON {"encrypted":...}（PHP 事故形态——裸密文）
+├─ 商户验平台响应报解密失败
+│   ├─ 平台公钥非当前密钥集（轮换后旧公钥解包必败）→ 重新下载平台公钥
+│   ├─ DEK alg 与套件族不符（网关侧配置变化）
+│   └─ AAD/GCM 参数处理与 SDK 不同（应直接用 SDK，勿自研）
+└─ 仍无法定位 → 持 traceId 查网关 WARN 日志
+```
+
+## 三大高频根因（2026-08-29 六仓审计实证）
+
+1. base64url 尾随位非规范（宽容解码静默丢位）——protocol.md §5
+2. SM2 签名 DER 编码（必须裸 64B）
+3. SM2 密文 C1C2C3 旧国标顺序（必须 C1C3C2）
+
+## 排查产物纪律
+
+- 对拍 draft 可共享（不含私钥）；私钥材料永不入对话/日志（SECURITY.md S3/S5）
+- 定位到根因后：先写**负向量测试**（黄金向量风格）再修——防回归且沉淀为团队资产
+
+# ===== skills/wop-troubleshoot/references/error-codes.md =====
+
+# 网关错误码目录（生成物——禁手改）
+
+> 提取源：`internal-gateway/.../GatewayExceptionEnum.java`（唯一真源，design.md §10.3）
+> 数量基线：62 项 · 重新生成：`python3 scripts/extract_error_codes.py`
+> I7 模糊码（1022/2005）：对外不区分根因——diagnose 只给排查方向，禁猜原因
+
+## 鉴权/认证（OP_GW_1xxx）
+
+| 码 | 语义 | 类型 | HTTP | 处理建议 |
+|---|---|---|---|---|
+| `OP_GW_1001` | appKey 为空或应用不存在 | BIZ | 401 | 检查 x-wop-appkey 是否正确传递 |
+| `OP_GW_1002` | 应用已停用 | BIZ | 401 | 检查应用状态，联系运营启用 |
+| `OP_GW_1003` | 无 API 权限（未授权或已过期） | BIZ | 403 | 检查应用是否已授权该 API 且授权在有效期内 |
+| `OP_GW_1005` | IP 白名单未通过 | BIZ | 403 | 检查客户端 IP 是否在应用白名单中 |
+| `OP_GW_1006` | 签名校验失败 | BIZ | 401 | 检查签名算法、密钥及待签名串拼接规则 |
+| `OP_GW_1007` | 签名时效过期（timestamp 超出窗口） | BIZ | 401 | 检查 x-wop-timestamp（毫秒时间戳）与服务器时间差是否在 expiredSeconds 窗口内 |
+| `OP_GW_1008` | IP 黑名单拦截 | BIZ | 403 | 请求 IP 命中平台黑名单 |
+| `OP_GW_1009` | nonce 重复（防重放） | BIZ | 401 | 检查 nonce 是否已使用过 |
+| `OP_GW_1010` | 缺少 x-wop-sign 请求头 | BIZ | 401 | 检查签名头是否携带 |
+| `OP_GW_1011` | x-wop-sign 格式错误 | BIZ | 401 | 检查 securityReq 与 authString 的空格分隔及 <protocolVersion>/<expiredSeconds>/<signedHeaders>/<signature> 四段结构 |
+| `OP_GW_1012` | 不支持的签名协议版本 | BIZ | 401 | 检查 protocolVersion 是否为 v1 |
+| `OP_GW_1013` | securityReq 无法识别或格式错误 | BIZ | 401 | 检查 securityReq 是否为 WOP-<密钥算法>-<摘要算法> 结构 |
+| `OP_GW_1014` | 不支持的密钥算法/摘要算法或密钥长度非法 | BIZ | 401 | 检查支持的套件组合（RSA3072/RSA4096/SM2） |
+| `OP_GW_1015` | 签名时效参数非法（expiredSeconds 缺失/超范围） | BIZ | 401 | 检查 expiredSeconds 取值在 (0, 86400] 秒 |
+| `OP_GW_1016` | signature 为空 | BIZ | 401 | 检查签名串是否完整 |
+| `OP_GW_1017` | signedHeaders 缺失或声明不完整 | BIZ | 401 | 检查 signedHeaders 必含标头及 x-wop-encrypt 参与签名 |
+| `OP_GW_1018` | 请求体摘要缺失或不匹配 | BIZ | 401 | 检查 x-wop-content-sha256 与请求体是否一致 |
+| `OP_GW_1019` | 缺少 x-wop-nonce（防重放参数缺失） | BIZ | 401 | 检查 nonce 头是否携带 |
+| `OP_GW_1020` | 应用未配置 IP 白名单 | BIZ | 403 | 联系运营在应用白名单中配置允许 IP |
+| `OP_GW_1021` | 老商户固定密钥认证失败（fixed-key 不匹配） | BIZ | 401 | 检查 fixed-key 与平台登记的 appSecret 是否一致 |
+| `OP_GW_1022` ⚠️I7 | 签名验证失败 | BIZ | 401 | 检查签名密钥与签名串组装是否符合协议文档 |
+| `OP_GW_1023` | 请求体摘要缺失或不匹配（x-wop-content-digest） | BIZ | 401 | 检查 x-wop-content-digest 值：<sha-256|sm3> + 恰一空格 + 64 位小写 hex，摘要对象为请求体线上原始字节 |
+
+## 参数校验（OP_GW_2xxx）
+
+| 码 | 语义 | 类型 | HTTP | 处理建议 |
+|---|---|---|---|---|
+| `OP_GW_2001` | 必填字段缺失 | BIZ | 400 | 检查 api_para 表中 must_fill_flag=1 的字段是否传递 |
+| `OP_GW_2002` | 加密指令解析失败 | BIZ | 400 | 检查 x-wop-encrypt Header 格式是否正确 |
+| `OP_GW_2003` | L2 加密指令缺少 dek | BIZ | 400 | 检查 L2 加密请求是否携带 x-wop-encrypt 的 dek 段 |
+| `OP_GW_2004` | DEK alg 与套件族不符 | BIZ | 400 | 检查 x-wop-encrypt 的 dek 段 alg：RSA 族须 AES-256-GCM，SM2 族须 SM4-GCM（公开映射知识） |
+| `OP_GW_2005` ⚠️I7 | 解密失败 | BIZ | 400 | 检查加密密钥与加密指令是否符合协议文档 |
+| `OP_GW_2006` | 请求体超过大小上限 | BIZ | 400 | 检查请求体大小：按线上总字节计（含 Base64 膨胀）不超过 10MB |
+
+## 业务规则（OP_GW_3xxx）
+
+| 码 | 语义 | 类型 | HTTP | 处理建议 |
+|---|---|---|---|---|
+| `OP_GW_3001` | 接口状态不允许调用（草稿/已下线） | BIZ | 403 | 检查接口发布状态 |
+| `OP_GW_3002` | 能力包未启用 | BIZ | 403 | 检查能力表状态 |
+
+## 依赖方异常（OP_GW_4xxx）
+
+| 码 | 语义 | 类型 | HTTP | 处理建议 |
+|---|---|---|---|---|
+| `OP_GW_4001` | 下游服务超时（含重试耗尽） | EXT | 504 | 检查下游服务响应时间及网络连通性 |
+| `OP_GW_4002` | 下游服务不可达 | EXT | 504 | 检查下游服务状态及路由地址配置 |
+| `OP_GW_4003` | 下游响应为空 | EXT | 504 | 检查下游服务返回内容 |
+| `OP_GW_4004` | 下游连接失败/超时（重试耗尽） | EXT | 504 | 检查下游服务状态及网络连通性 |
+| `OP_GW_4005` | 路由调用异常（响应解析等客户端异常） | EXT | 504 | 检查下游服务响应格式及网关配置 |
+
+## 平台内部（OP_GW_5xxx）
+
+| 码 | 语义 | 类型 | HTTP | 处理建议 |
+|---|---|---|---|---|
+| `OP_GW_5001` | 系统内部异常 | SYS | 500 | 联系运维或开发排障，请携带 traceId |
+| `OP_GW_5002` | 配置缺失（路由配置为空等） | DAT | 500 | 检查 API 定义中域名和路径配置 |
+| `OP_GW_5003` | 请求解密失败（DEK 解包失败） | SYS | 500 | 检查密钥集与加密算法是否匹配 |
+| `OP_GW_5004` | 响应加密失败 | SYS | 500 | 检查密钥与算法配置 |
+| `OP_GW_5005` | 密钥已过期且无可用密钥 | BIZ | 500 | 检查 app_secret 表中是否有有效密钥集 |
+| `OP_GW_5006` | 字段映射失败（类型转换错误） | DAT | 500 | 检查 api_field_mapp 表字段类型与请求值格式 |
+| `OP_GW_5007` | 响应为空（Pipeline 无输出） | SYS | 500 | 联系运维排查响应链路 |
+| `OP_GW_5008` | 后端服务 URL 或 API 路径为空 | DAT | 500 | 检查后端服务地址与 API 路径配置 |
+| `OP_GW_5009` | API 无全量发布版本 | DAT | 500 | 检查 API 是否存在已发布的全量版本 |
+| `OP_GW_5010` | 解密未找到匹配密钥集 | SYS | 500 | 检查密钥集与验签命中的密钥是否一致 |
+| `OP_GW_5011` | 无法确定解密算法套件 | SYS | 500 | 检查加密指令与密钥套件配置 |
+| `OP_GW_5012` | 密钥集缺少平台私钥 | SYS | 500 | 检查密钥集中是否登记平台私钥 |
+| `OP_GW_5013` | L2 请求体缺少 encrypted 密文字段 | SYS | 500 | 检查 L2 报文包装格式 |
+| `OP_GW_5014` | 解密引擎执行失败 | SYS | 500 | 检查密钥与算法参数是否正确 |
+| `OP_GW_5015` | 无法确定加密套件 | SYS | 500 | 检查出站加密指令与密钥套件配置 |
+| `OP_GW_5016` | 响应 DEK 包裹失败 | SYS | 500 | 检查商户公钥与算法配置 |
+| `OP_GW_5017` | 无法确定出站签名套件 | SYS | 500 | 检查入站签名套件是否在上下文中保留 |
+| `OP_GW_5018` | 出站加签失败 | SYS | 500 | 联系运维排查出站签名链路 |
+| `OP_GW_5019` | 出站加签未找到匹配密钥集 | DAT | 500 | 检查密钥集与入站验签是否一致 |
+| `OP_GW_5020` | 出站加签密钥已失效 | DAT | 500 | 检查密钥有效期配置 |
+| `OP_GW_5021` | 出站加签密钥集缺少平台私钥 | DAT | 500 | 检查密钥集中是否登记平台私钥 |
+| `OP_GW_5022` | 字段目标路径结构冲突 | DAT | 500 | 检查 api_field_mapp 目标路径与报文结构是否匹配 |
+| `OP_GW_5023` | 字段路径表达式非法 | DAT | 500 | 检查 api_field_mapp 路径表达式语法 |
+| `OP_GW_5024` | 出参映射失败 | DAT | 500 | 检查 api_field_mapp 出参规则与下游响应格式 |
+
+## 限流/降级（OP_GW_9xxx）
+
+| 码 | 语义 | 类型 | HTTP | 处理建议 |
+|---|---|---|---|---|
+| `OP_GW_9001` | 请求限流（达到 QPS 配额） | BIZ | 429 | 降低请求频率，稍后重试 |
+| `OP_GW_9002` | 接口熔断中 | BIZ | 429 | 等待熔断恢复后重试 |
+| `OP_GW_9003` | 后端服务并发已达上限 | BIZ | 429 | 降低并发或联系运维调整后端服务 maxConcurrent 配置 |
+
+## 分流规则（diagnose 语义）
+
+1. `code` 以 `OP_GW_` 开头 → 查本表
+2. HTTP 200 且 code 非 OP_GW_ → 下游业务错误（网关透传），联系 API 提供方
+3. 无 code / 信封残缺 → 网络层/代理问题
+
+**I7 两码的排查路径**：`OP_GW_1022` → 用 `wop sign` 对拍定位签名串差异；`OP_GW_2005` → 核查 DEK/套件族一致性；均可用 traceId 查网关 WARN 日志取真实根因。

@@ -125,6 +125,17 @@ mkdir -p ~/.agents/skills && cp -r wop-skills/skills/* ~/.agents/skills/
 | Cursor | `.cursor/rules/wop-skills.mdc` | 克隆后原生生效；亦可 Settings → Rules → Remote Rule (GitHub) 粘贴 `wop-platform/wop-skills` 直接导入 |
 | Continue.dev | `.continue/rules/wop-skills.md` | amplified.dev 格式（Markdown + frontmatter），兼容 rules CLI 渲染生态 |
 
+### llms.txt / llms-full.txt（AI 摄取端点）
+
+仓库根提供 [llms.txt](llms.txt)（索引）与 [llms-full.txt](llms-full.txt)（全量语料），
+任何 LLM/Agent 可经 raw URL 直取（lint R9 守护其与 `skills/` 逐字节一致）：
+
+- `https://raw.githubusercontent.com/wop-platform/wop-skills/main/llms.txt`
+- `https://raw.githubusercontent.com/wop-platform/wop-skills/main/llms-full.txt`
+
+LLM-friendly index & full corpus live at the repo root, kept in lockstep with
+`skills/` by lint rule R9.
+
 ### 安装后验证
 
 ```bash
