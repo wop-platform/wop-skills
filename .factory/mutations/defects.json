@@ -85,10 +85,10 @@
     },
     {
       "id": "B-104",
-      "description": "负例：载体层良性改动（commands.md 补充一行）不得被 tests 门拦（门不全拒验证）",
-      "target": "skills/wop-cli/references/commands.md",
-      "find": "# wop-cli 命令手册",
-      "replace": "# wop-cli 命令手册\n\n> 命令语义以 selftest 实际输出为准。",
+      "description": "负例：载体脚本 docstring 措辞等价变更（行为不变，CLI 用例仍绿），tests 门必须放行（门不全拒；对齐上游 B-106 惯例——R9 后 skills/ Markdown 属 llms 语料域，任何语料变更须 --write-llms 同步，不可作负例锚）",
+      "target": "skills/wop-cli/scripts/wop",
+      "find": "依赖安装：pip install -r requirements.lock（同目录）",
+      "replace": "依赖安装：pip install -r requirements.lock（同目录）（负例 B-104：仅措辞变更）",
       "gate": "tests",
       "expect_block": false
     },
