@@ -551,8 +551,8 @@ class CodeupAdapter:
                     ns_map[k.strip()] = v.strip()
         org, path = self._remote()
         if org and path and "/" in path and ns_map:
-            # namespace = path 首段（org/team/<repo> → org）；
-            # 旧 [1] 取到中间层 team，映射永不命中（php#17）
+            # namespace = path 首段（gtsp/open-platform/<repo> → gtsp）；
+            # 旧 [1] 取到中间层 open-platform，映射永不命中（php#17）
             ns = path.split("/")[0]
             if ns in ns_map:
                 return ns_map[ns]
@@ -1097,17 +1097,10 @@ class CodeupAdapter:
                 time.sleep(0.05)
                 continue
             break
-        try:
+        with contextlib.suppress(OSError):
             with open(os.path.join(lock_dir, "pid"), "w",
                       encoding="ascii") as fh:
                 fh.write(str(os.getpid()))
-        except OSError as e:
-            # 无 pid 残锁会被判陈旧致另一进程接管（双写）：释放并拒持锁
-            shutil.rmtree(lock_dir, ignore_errors=True)
-            raise HostingError(
-                f"add {name}: 锁 pid 写入失败（{e}），fail-closed 拒持锁",
-                code=1,
-            ) from e
         try:
             yield
         finally:
