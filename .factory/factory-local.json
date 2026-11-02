@@ -40,7 +40,7 @@
   "review_basis": "docs/spec.md 决策条款 + docs/intent.md 验收判据（A1–A5）+ SECURITY.md 安全纪律",
   "final_gate_cmd": "scripts/run_tests.sh --no-lock",
   "pr_review_skills": [],
-  "upstream_repo": "im47cn/awesome-rules",
-  "upstream_path": "~/sources/awesome-rules",
+  "upstream_repo": "im47cn/awesome-factory",
+  "upstream_path": "~/sources/awesome-factory",
   "feedback_branch_prefix": "feedback/wop-skills"
 }
