@@ -2,7 +2,7 @@
 """wop — WOP 网关官方 CLI（skills/wop-cli 基座载体）
 
 对齐三元组：crypto-strategy-spec v0.3-reviewed + wop-sdk-spec v1.0-ratified
-           + wop-python-sdk >= 0.1.1（0.1.0 缺尾随位修复链，不可用）
+           + wop-python-sdk >= 0.2.0（0.1.x 无 ZA userId 显式化，D14 链不可用）
 安全纪律：SECURITY.md S1–S8（本文件为 MISSION 周界，变更走人类 MR）
 依赖安装：pip install -r requirements.lock（同目录）
 退出码：0 成功；1 业务/协议失败；2 配置/环境错误；3 S6 防御性拒绝
@@ -11,7 +11,6 @@
 
 from __future__ import annotations
 import stat
-import inspect
 import argparse
 import base64
 import hashlib
@@ -28,7 +27,7 @@ RSA_SUITE_BITS = {"WOP-RSA3072-SHA256": 3072, "WOP-RSA4096-SHA256": 4096}
 
 # 黄金向量锚（wop-specs ce92dd4，12 条 formatRules）——spec:#9 三元组运行时校验
 VECTORS_MD5 = "1033af2c35b498b479e41487ccbda862"
-MIN_SDK_VERSION = (0, 1, 1)
+MIN_SDK_VERSION = (0, 2, 0)
 FORMAT_RULES_COUNT = 12
 HEADER_RULE_IDS = frozenset({
     "header-rsa-ok", "header-sm2-ok", "header-crossfamily",
@@ -305,19 +304,11 @@ def cmd_selftest(args) -> int:
         k_hex = b64url_decode(v["inputs"]["sm2FixedKB64u"]).hex()
         # ZA userId 语义敏感（字节级锚）：向量 expectedSig 以 inputs.sm2UserId
         # 生成（实测换 ID 即不命中）。D14 出向语义在真实调用里取 config.appKey
-        # （= x-wop-appkey 值），此处是向量夹具按同链取值。
-        # 依赖口径：user_id 参数 0.2.0 起（PyPI 未发布时 lock 仍 0.1.x）——
-        # 能力探测双形态：无该参数的 SDK 其 gmssl ZA 硬编码默认恰为
-        # '1234567812345678'，与向量值一致；SDK 发布 0.2.0 并升 requirements.lock
-        # 后删除探测分支。
-        uid = v["inputs"]["sm2UserId"]
-        if "user_id" in inspect.signature(Sm2Ops.__init__).parameters:
-            ops = Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex(),
-                         public_xy_hex=load_sm2_public_key(keys["sm2"]["publicPointB64"]).xy_hex,
-                         user_id=uid)
-        else:  # shortcut: 0.1.x 无显式 userId 入口，ZA 走库默认；升 0.2.0 后删
-            ops = Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex(),
-                         public_xy_hex=load_sm2_public_key(keys["sm2"]["publicPointB64"]).xy_hex)
+        # （= x-wop-appkey 值），此处是向量夹具按同链取值；user_id 参数
+        # 0.2.0 起必备（MIN_SDK_VERSION 同步抬升），无需能力探测。
+        ops = Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex(),
+                     public_xy_hex=load_sm2_public_key(keys["sm2"]["publicPointB64"]).xy_hex,
+                     user_id=v["inputs"]["sm2UserId"])
         sig = sm2_sign_with_sm3(ops, msg, k_hex)
         _check(b64url_decode(sv["expectedSigB64u"]) == sig and len(sig) == 64,
                "L3", "sm2-sign-fixedk 签名字节不一致（或非裸 r||s 64B）")
