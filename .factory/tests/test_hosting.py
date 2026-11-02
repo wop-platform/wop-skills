@@ -376,19 +376,19 @@ class TestCodeupShapes:
 
     def test_space_id_maps_path_namespace(self, monkeypatch, tmp_path):
         """namespace = remote path 首段（php#17 Sourcery）：
-        org/team/<repo> 的中间层不是 namespace，旧 [1] 索引
+        gtsp/open-platform/<repo> 的中间层不是 namespace，旧 [1] 索引
         永不命中 conf 键；单段 path（无 namespace 层）fail-closed。"""
         conf = tmp_path / "spaces.conf"
-        conf.write_text("org|SID-1\n", encoding="utf-8")
+        conf.write_text("gtsp|SID-1\n", encoding="utf-8")
         monkeypatch.setenv("YUNXIAO_ACCESS_TOKEN", "t")
         monkeypatch.setenv("CODEUP_ORG_ID", "org")
         monkeypatch.setenv("CODEUP_REPO_ID", "42")
         monkeypatch.setenv("FACTORY_SPACES_CONF", str(conf))
         monkeypatch.delenv("CODEUP_SPACE_ID", raising=False)
         ad = hosting.CodeupAdapter()
-        ad._remote = lambda: ("6ab", "org/team/gateway")
+        ad._remote = lambda: ("610b3c9d", "gtsp/open-platform/gtsp-xx-gateway")
         assert ad._space_id() == "SID-1"
-        ad._remote = lambda: ("6ab", "plain-repo")
+        ad._remote = lambda: ("610b3c9d", "plain-repo")
         with pytest.raises(hosting.HostingError) as e:
             ad._space_id()
         assert e.value.code == 2
@@ -1122,6 +1122,28 @@ class TestLabelAddCrossProcessLock:
         with ad._add_label_lock(7, "factory:approved"):
             assert os.path.isdir(lock_dir)
         assert not os.path.isdir(lock_dir)
+
+    def test_pid_write_failure_refuses_lock(self, monkeypatch, tmp_path):
+        """pid 写失败 → 释放锁目录 + HostingError fail-closed 拒持锁：
+        无 pid 裸持锁越过年龄宽限即被他进程判死接管 = 双写，且先者的
+        finally 清理会误删后继活锁（awesome-rules@80ce34ad 血统既有
+        保护移植；wop-skills#25 审查以 suppress 形态实证接管窗口）。"""
+        monkeypatch.setenv("FACTORY_LOCK_DIR", str(tmp_path))
+        ad = hosting.CodeupAdapter()
+        lock_dir = hosting._label_lock_dir(".", 7, "factory:needs-review")
+        real_open = open
+
+        def flaky_open(path, *a, **k):
+            if str(path).endswith("/pid"):
+                raise OSError("模拟写盘失败")
+            return real_open(path, *a, **k)
+
+        monkeypatch.setattr("builtins.open", flaky_open)
+        with pytest.raises(hosting.HostingError) as e:
+            with ad._add_label_lock(7, "factory:needs-review"):
+                pass
+        assert e.value.code == 1
+        assert not os.path.isdir(lock_dir)  # 拒持锁前已释放，不留无 pid 残锁
 
     def test_parallel_add_posts_exactly_once(self, monkeypatch, tmp_path):
         """并发回归（核心契约）：两独立适配器实例（双进程/双链形态）
