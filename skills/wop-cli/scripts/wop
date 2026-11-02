@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 import stat
+import inspect
 import argparse
 import base64
 import hashlib
@@ -302,8 +303,21 @@ def cmd_selftest(args) -> int:
         _check(b64url_encode(sig) == sv["expectedSigB64u"], "L3", "rsa4096-sign 签名字节不一致")
         sv = vec("signature", "sm2-sign-fixedk")
         k_hex = b64url_decode(v["inputs"]["sm2FixedKB64u"]).hex()
-        ops = Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex(),
-                     public_xy_hex=load_sm2_public_key(keys["sm2"]["publicPointB64"]).xy_hex)
+        # ZA userId 语义敏感（字节级锚）：向量 expectedSig 以 inputs.sm2UserId
+        # 生成（实测换 ID 即不命中）。D14 出向语义在真实调用里取 config.appKey
+        # （= x-wop-appkey 值），此处是向量夹具按同链取值。
+        # 依赖口径：user_id 参数 0.2.0 起（PyPI 未发布时 lock 仍 0.1.x）——
+        # 能力探测双形态：无该参数的 SDK 其 gmssl ZA 硬编码默认恰为
+        # '1234567812345678'，与向量值一致；SDK 发布 0.2.0 并升 requirements.lock
+        # 后删除探测分支。
+        uid = v["inputs"]["sm2UserId"]
+        if "user_id" in inspect.signature(Sm2Ops.__init__).parameters:
+            ops = Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex(),
+                         public_xy_hex=load_sm2_public_key(keys["sm2"]["publicPointB64"]).xy_hex,
+                         user_id=uid)
+        else:  # shortcut: 0.1.x 无显式 userId 入口，ZA 走库默认；升 0.2.0 后删
+            ops = Sm2Ops(private_key_hex=load_sm2_private_key(keys["sm2"]["privateDB64"]).hex(),
+                         public_xy_hex=load_sm2_public_key(keys["sm2"]["publicPointB64"]).xy_hex)
         sig = sm2_sign_with_sm3(ops, msg, k_hex)
         _check(b64url_decode(sv["expectedSigB64u"]) == sig and len(sig) == 64,
                "L3", "sm2-sign-fixedk 签名字节不一致（或非裸 r||s 64B）")
