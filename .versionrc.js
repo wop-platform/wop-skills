@@ -24,16 +24,18 @@ module.exports = {
   ],
   // 版本标签前缀
   tagPrefix: 'v',
-  // 版本面：本仓无 package.json，五份 agent 插件清单 + cursor 市场元数据
-  // 均以 .version 字段对外宣告版本——不列 bumpFiles 则发版只动 tag，
-  // 市场侧更新信号停在旧版本（v0.2.0 曾手工同步 6 处）。
+  // 版本面：本仓无 npm 包，package.json 仅作版本源；五份 agent 插件清单
+  // 用 json updater，cursor 市场元数据版本嵌在 metadata.version，需自定义
+  // updater（探针实测：默认 json updater 会写顶层键并留下旧 metadata.version）。
   bumpFiles: [
-    '.claude-plugin/plugin.json',
-    '.codex-plugin/plugin.json',
-    '.cursor-plugin/plugin.json',
-    '.cursor-plugin/marketplace.json',
-    '.grok-plugin/plugin.json',
-    '.kimi-plugin/plugin.json',
+    { filename: 'package.json', type: 'json' },
+    { filename: '.claude-plugin/plugin.json', type: 'json' },
+    { filename: '.codex-plugin/plugin.json', type: 'json' },
+    { filename: '.cursor-plugin/plugin.json', type: 'json' },
+    { filename: '.grok-plugin/plugin.json', type: 'json' },
+    { filename: '.kimi-plugin/plugin.json', type: 'json' },
+    { filename: '.cursor-plugin/marketplace.json',
+      updater: require('./scripts/updater-cursor-marketplace') },
   ],
   // commit / compare URL 从 git remote 自动推断 host（GitHub / 阿里云 codeup / GitLab 均适配）
   // 如需固定 host，在此覆写 commitUrlFormat / compareUrlFormat
