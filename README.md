@@ -5,10 +5,10 @@
 **WOP 开放平台 Agent 技能包 —— 让每一个商户 Agent 安全、正确地完成 API 对接**
 **Agent Skills for the WOP Open Platform — every merchant agent signs, calls and verifies, correctly.**
 
-[![Tests](https://img.shields.io/badge/tests-73%20passed-brightgreen)]()
+[![Tests](https://img.shields.io/badge/tests-79%20passed-brightgreen)]()
 [![Coverage](https://img.shields.io/badge/line%20coverage-97%25%20(gate%20%E2%89%A595%25)-brightgreen)]()
 [![Python](https://img.shields.io/badge/python-%E2%89%A53.9-blue)]()
-[![Aligned](https://img.shields.io/badge/triple--aligned-crypto--spec%20v0.3%20%C2%B7%20sdk--spec%20v1.0%20%C2%B7%20sdk%200.1.1-success)]()
+[![Aligned](https://img.shields.io/badge/triple--aligned-crypto--spec%20v0.3%20%C2%B7%20sdk--spec%20v1.0%20%C2%B7%20sdk%200.2.0-success)]()
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/wop-platform/wop-skills?utm_source=oss&utm_medium=github&utm_campaign=wop-platform%2Fwop-skills&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 [特性](#-为什么存在--why-this-repo-exists) · [安装](#-安装到你的-agent--install-into-your-agent) · [快速开始](#-快速开始--quick-start) · [命令](#-八件套命令--the-eight-commands) · [协议](#-协议心智模型--protocol-mental-model) · [安全](#-安全纪律--security-discipline) · [治理](#-质量与治理--quality--governance)
@@ -37,7 +37,7 @@ spec and six official SDKs:
 |---|---|---|
 | 密码学策略 | [wop-specs / crypto-strategy-spec](https://github.com/wop-platform/wop-specs) | `v0.3-reviewed` |
 | SDK 契约 | [wop-specs / wop-sdk-spec](https://github.com/wop-platform/wop-specs) | `v1.0-ratified` |
-| 官方 SDK（六语言） | [wop-python-sdk](https://github.com/wop-platform/wop-python-sdk) · [java](https://github.com/wop-platform/wop-java-sdk) · [go](https://github.com/wop-platform/wop-go-sdk) · [php](https://github.com/wop-platform/wop-php-sdk) · [dotnet](https://github.com/wop-platform/wop-dotnet-sdk) · [typescript](https://github.com/wop-platform/wop-typescript-sdk) | `≥ 0.1.1` |
+| 官方 SDK（六语言） | [wop-python-sdk](https://github.com/wop-platform/wop-python-sdk) · [java](https://github.com/wop-platform/wop-java-sdk) · [go](https://github.com/wop-platform/wop-go-sdk) · [php](https://github.com/wop-platform/wop-php-sdk) · [dotnet](https://github.com/wop-platform/wop-dotnet-sdk) · [typescript](https://github.com/wop-platform/wop-typescript-sdk) | `≥ 0.1.1`（wop-cli 依赖 python-sdk `≥ 0.2.0`） |
 | **Agent 技能（本仓）** | **wop-skills** | 三元组 + MD5 向量锚 |
 
 > **对齐三元组**：CLI 每次启动 `selftest` 都校验三元组与黄金向量 MD5 锚——规格、SDK、
@@ -267,15 +267,15 @@ trusting discipline alone.
 
 这不是普通的文档仓库——**每一条知识都有执行载体**：
 
-- **测试**：73 项 pytest 全绿；12 条字节级向量一致性断言；三元组漂移即拒跑
+- **测试**：79 项 pytest 全绿；12 条字节级向量一致性断言；三元组漂移即拒跑
 - **覆盖率**：行覆盖率 97%，门禁 ≥95%（`scripts/run_tests.sh` 终局测量，含 subprocess 归集）
-- **突变证据**：注入缺陷 kill rate 8/8——未证明的门不是门
+- **突变证据**：注入缺陷 kill rate 11/11——未证明的门不是门
 - **反向核对**：spec 条款 → 测试名矩阵（`docs/spec-matrix.md`），否定式条款亦有负向量测试
 - **宪法治理**：`MISSION.md` 九条铁律（holdout 独立验证、spec 条款不因现状顺延、判据冻结……）
 
-This is not a docs folder — **every claim here has an executable carrier**: 73 passing
+This is not a docs folder — **every claim here has an executable carrier**: 79 passing
 tests, 12 byte-level vector-consistency assertions, a 97% line-coverage gate (≥95%
-enforced), an 8/8 mutation kill rate proving the gate itself, and a spec-clause →
+enforced), an 11/11 mutation kill rate proving the gate itself, and a spec-clause →
 test-name reverse-verification matrix. Governance follows a written constitution
 (`MISSION.md`) with nine iron laws.
 
