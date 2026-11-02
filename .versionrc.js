@@ -24,6 +24,17 @@ module.exports = {
   ],
   // 版本标签前缀
   tagPrefix: 'v',
+  // 版本面：本仓无 package.json，五份 agent 插件清单 + cursor 市场元数据
+  // 均以 .version 字段对外宣告版本——不列 bumpFiles 则发版只动 tag，
+  // 市场侧更新信号停在旧版本（v0.2.0 曾手工同步 6 处）。
+  bumpFiles: [
+    '.claude-plugin/plugin.json',
+    '.codex-plugin/plugin.json',
+    '.cursor-plugin/plugin.json',
+    '.cursor-plugin/marketplace.json',
+    '.grok-plugin/plugin.json',
+    '.kimi-plugin/plugin.json',
+  ],
   // commit / compare URL 从 git remote 自动推断 host（GitHub / 阿里云 codeup / GitLab 均适配）
   // 如需固定 host，在此覆写 commitUrlFormat / compareUrlFormat
 };
