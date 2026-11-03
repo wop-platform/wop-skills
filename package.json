@@ -1,0 +1,6 @@
+{
+  "name": "wop-skills",
+  "version": "0.2.0",
+  "private": true,
+  "description": "版本源（commit-and-tag-version 的 packageFiles 默认源）；本仓非 npm 包，仅承载发版版本号"
+}

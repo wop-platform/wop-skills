@@ -1,7 +1,9 @@
 # 变更记录
 
-本仓版本面 = 五份 agent 插件清单 + cursor 市场元数据的 `.version` 字段 + git tag `v*`
-（`.versionrc.js` 的 `bumpFiles` 已接线）。按 spec 决策 #9，每次发版须记录对齐三元组的变更。
+本仓版本面 = `package.json`（仅版本源，非 npm 包）+ 五份 agent 插件清单 +
+cursor 市场元数据的 `.version` 字段 + git tag `v*`，由 `.versionrc.js` 的 `bumpFiles`
+七点接线（cursor 市场元数据走自定义 updater，默认 json updater 写不进 `metadata.version`）。
+按 spec 决策 #9，每次发版须记录对齐三元组的变更。
 
 ## [v0.2.0] - 2026-11-03
 
